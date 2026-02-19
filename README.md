@@ -2,10 +2,10 @@
 
 A faithful recreation of the early Version-55 Company Cruiser.
 
-Not the V70 tank.
-Not the flying exploit machine.
+- Not the V70 tank.
+- Not the flying exploit machine.
 
-The original vision - fragile, clunky, and most likely run-ending
+## The original vision - fragile, clunky, and most likely run-ending
 
  - Retains as much of the original jank as possible.
  - Removes the absurd mobility abuse.
