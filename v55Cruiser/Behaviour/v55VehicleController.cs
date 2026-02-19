@@ -6,7 +6,6 @@ using GameNetcodeStuff;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.XR;
 using UnityEngine.Rendering.HighDefinition;
 using v55Cruiser;
 using v55Cruiser.Behaviour;
