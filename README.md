@@ -17,7 +17,7 @@ It is garbage on wheels.
 
 It is beautiful.
 
-- And as Zeekerss once proudly said:
+## And as Zeekerss once proudly said:
 
 "If you get the Company Cruiser, you get Lethal Company".
 
