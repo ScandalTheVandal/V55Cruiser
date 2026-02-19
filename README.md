@@ -12,7 +12,8 @@ The original vision - fragile, clunky, and most likely run-ending
  - ...Adds a random chance for the Cruiser to be right-hand-drive.
  - Polished, but never 'perfected'.
 
-It is garbaged on wheels.
+It is garbage on wheels.
+
 It is beautiful.
 
 Enjoy.
