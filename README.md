@@ -17,4 +17,4 @@ It is garbage on wheels.
 It is beautiful.
 
 
-- Enjoy.
+* Enjoy.
