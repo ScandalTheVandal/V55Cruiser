@@ -4,7 +4,7 @@ A faithful recreation of the early Version-55 Company Cruiser.
 
 Issued without apology.
 
-You really don't "get the Cruiser" in present times.
+You really, really don't "get the Cruiser" in present times. You think you do, you don't. 
 
 ## What to expect:
 
