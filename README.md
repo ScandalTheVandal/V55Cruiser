@@ -9,7 +9,7 @@ You really don't "get the Cruiser" in present times.
 ## What to expect:
 
 - Poor handling characteristics.
-- A spike in stress when sat in this hunk of junk.
+- A spike in stress when operating this hunk of junk.
 - Ended runs due to vehicle destruction.
 - Fire, lots of fire.
 - Frequent regret
