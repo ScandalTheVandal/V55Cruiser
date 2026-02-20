@@ -12,14 +12,17 @@ You really, really don't "get the Cruiser" in present times. You think you do, y
 - A spike in stress when operating this hunk of junk.
 - Ended runs due to vehicle destruction.
 - Fire, lots of fire.
-- Frequent regret
-- Structural rigidity similar to that of paper machete
+- Frequent regret.
+- Structural rigidity similar to that of paper machete.
+- Death, lots of death.
 
 
 ## This is the original vision - fragile, clunky, lethal to use.
 
 - Not the V70 tank.
 - Not the flying exploit machine.
+- Made to be driven.
+- Difficult to control.
 
 
 ## This mod:
