@@ -26,7 +26,7 @@ You really don't "get the Cruiser" in present times.
 
  - Retains as much of the original jank as possible.
  - Removes the absurd mobility abuse.
- - Increases vulnerability ten fold. You were never meant to be safe.
+ - Increases vulnerability ten fold. You were never meant to be safe. You are a underpaid meat sack operating a "company approved" transporation machine. Don't have high hopes.
  - ...Adds a random chance for the Cruiser to be right-hand-drive.
  - Adds minor polish where deemed necessary. Does not 'improve' using this hunk of metal.
 
