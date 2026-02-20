@@ -10,7 +10,7 @@ You really, really don't "get the Cruiser" in present times. You think you do, y
 
 - Poor handling characteristics.
 - A spike in stress when operating this hunk of junk.
-- Ended runs due to vehicle destruction.
+- Ended runs as a result of this dumpster fire death trap.
 - Fire, lots of fire.
 - Frequent regret.
 - Structural rigidity similar to that of paper machete.
