@@ -34,7 +34,7 @@ You really, really don't "get the Cruiser" in present times. You think you do, y
  - Adds minor polish where deemed necessary. Does not 'improve' the usability of this hunk of metal.
 
 
-This thing "does anything but cruiser"
+This thing "does anything but cruise"
 
 It is garbage on wheels.
 
