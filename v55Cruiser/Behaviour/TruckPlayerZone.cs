@@ -10,35 +10,20 @@ namespace v55Cruiser.Behaviour;
 public class TruckPlayerZone : MonoBehaviour
 {
     public v55VehicleController controller = null!;
+    public bool hasLocalPlayer;
     public int priority;
     public float checkInterval;
-    public float stayTimer;
 
-    public void LateUpdate()
+    public void Start()
     {
-        if (controller == null) return;
-        if (checkInterval < 0.3f)
-        {
-            checkInterval += Time.deltaTime;
-            return;
-        }
-        checkInterval = 0f;
-
-        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
-        if (!VehicleUtils.IsPlayerNearTruck(playerController, controller) &&
-            (PlayerUtils.isPlayerOnTruck ||
-            PlayerUtils.isPlayerInStorage))
-        {
-            PlayerUtils.isPlayerOnTruck = false;
-            PlayerUtils.isPlayerInStorage = false;
-        }
+        checkInterval = Random.Range(0f, 0.4f);
     }
 
     public void OnTriggerExit(Collider other)
     {
         if (controller == null) return;
-        if (PlayerUtils.seatedInTruck) return;
         if (other.gameObject != GameNetworkManager.Instance.localPlayerController.gameObject) return;
+        if (PlayerUtils.seatedInTruck) return;
 
         switch (priority)
         {
@@ -51,8 +36,7 @@ public class TruckPlayerZone : MonoBehaviour
                 }
                 break;
             case 2:
-                if (!PlayerUtils.seatedInTruck)
-                    PlayerUtils.isPlayerInStorage = false;
+                PlayerUtils.isPlayerInStorage = false;
                 break;
         }
     }
@@ -60,38 +44,46 @@ public class TruckPlayerZone : MonoBehaviour
     public void OnTriggerStay(Collider other)
     {
         if (controller == null) return;
-        if (PlayerUtils.seatedInTruck) return;
         if (other.gameObject != GameNetworkManager.Instance.localPlayerController.gameObject) return;
-
-        stayTimer += Time.fixedDeltaTime;
-        if (stayTimer < 0.4f) return;
-        stayTimer = 0f;
+        if (PlayerUtils.seatedInTruck) return;
 
         switch (priority)
         {
             case 1:
+                if (!PlayerUtils.isPlayerInStorage)
+                    PlayerUtils.isPlayerOnTruck = true;
+                break;
+            case 2:
                 PlayerUtils.isPlayerOnTruck = true;
-                break;
-            case 2:
-                if (!PlayerUtils.seatedInTruck)
-                    PlayerUtils.isPlayerInStorage = true;
+                PlayerUtils.isPlayerInStorage = true;
                 break;
         }
+        checkInterval = 0f;
+        hasLocalPlayer = true;
     }
 
-    public void ClearZoneState()
+    private void Update()
     {
-        switch (priority)
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+        if (!VehicleUtils.IsPlayerNearTruck(playerController, controller) &&
+            (PlayerUtils.isPlayerOnTruck ||
+            PlayerUtils.isPlayerInStorage))
         {
-            case 1:
-                PlayerUtils.isPlayerOnTruck = false;
-                break;
-            case 2:
-                PlayerUtils.isPlayerInStorage = false;
-                break;
+            PlayerUtils.isPlayerOnTruck = false;
+            PlayerUtils.isPlayerInStorage = false;
+            checkInterval = 0f;
+            hasLocalPlayer = false;
         }
+        if (!hasLocalPlayer)
+        {
+            return;
+        }
+        if (checkInterval <= 0.2f)
+        {
+            checkInterval += Time.deltaTime;
+            return;
+        }
+        checkInterval = 0f;
+        hasLocalPlayer = false;
     }
-
-    public void OnDisable() => ClearZoneState();
-    public void OnDestroy() => ClearZoneState();
 }

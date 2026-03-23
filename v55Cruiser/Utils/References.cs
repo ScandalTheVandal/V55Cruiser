@@ -9,7 +9,6 @@ public static class References
     // optimisation
     internal static ItemDropship itemShip = null!;
     internal static v55VehicleController truckController = null!;
-    internal static BushWolfEnemy kidnapperFox = null!;
 
     // fixes
     internal static PlayerControllerB lastDriver = null!;
@@ -17,5 +16,4 @@ public static class References
 
     // custom animations
     internal static RuntimeAnimatorController truckPlayerAnimator = null!;
-    internal static RuntimeAnimatorController truckOtherPlayerAnimator = null!;
 }

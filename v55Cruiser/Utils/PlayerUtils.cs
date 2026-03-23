@@ -1,5 +1,6 @@
 ﻿using GameNetcodeStuff;
 using UnityEngine;
+using v55Cruiser.Patches;
 
 namespace v55Cruiser.Utils;
 public static class PlayerUtils
@@ -11,8 +12,14 @@ public static class PlayerUtils
     public static bool isPlayerInStorage;
 
     public static Animator playerAnimator = null!;
+    public static Animator driverPlayerAnimator = null!;
+    public static Animator passengerPlayerAnimator = null!;
+
     public static RuntimeAnimatorController localDriverCachedAnimatorController = null!;
+    public static RuntimeAnimatorController localPassengerCachedAnimatorController = null!;
+
     public static RuntimeAnimatorController driverCachedAnimatorController = null!;
+    public static RuntimeAnimatorController passengerCachedAnimatorController = null!;
 
     private static float[] storedParameters = new float[0];
     private static bool[] storedBools = new bool[0];
@@ -40,7 +47,7 @@ public static class PlayerUtils
         HUDManager.Instance.ClearControlTips();
     }
 
-    public static void ReplaceClientPlayerAnimator(int playerId, InteractTrigger seatTrigger)
+    public static void ReplaceClientPlayerAnimator(int playerId, InteractTrigger seatTrigger, bool isPassenger)
     {
         // find the player
         PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[playerId];
@@ -51,11 +58,22 @@ public static class PlayerUtils
             !playerController.isPlayerControlled)
             return;
 
+        ResetPlayerData(playerController);
         // save a reference of the players current animator
-        driverCachedAnimatorController = null!;
-        driverCachedAnimatorController = GameObject.Instantiate(playerController.playerBodyAnimator.runtimeAnimatorController);
-        driverCachedAnimatorController.name = "metarigOtherPlayers";
-        playerAnimator = playerController.playerBodyAnimator;
+        if (!isPassenger)
+        {
+            driverCachedAnimatorController = null!;
+            driverCachedAnimatorController = GameObject.Instantiate(playerController.playerBodyAnimator.runtimeAnimatorController);
+            driverCachedAnimatorController.name = "metarigOtherPlayers";
+            driverPlayerAnimator = playerController.playerBodyAnimator;
+        }
+        else
+        {
+            passengerCachedAnimatorController = null!;
+            passengerCachedAnimatorController = GameObject.Instantiate(playerController.playerBodyAnimator.runtimeAnimatorController);
+            passengerCachedAnimatorController.name = "metarigOtherPlayers";
+            passengerPlayerAnimator = playerController.playerBodyAnimator;
+        }
 
         if (References.truckPlayerAnimator != null)
             playerController.playerBodyAnimator.runtimeAnimatorController = References.truckPlayerAnimator;
@@ -107,7 +125,7 @@ public static class PlayerUtils
         }
     }
 
-    public static void ReturnClientPlayerAnimator(int playerId, InteractTrigger seatTrigger)
+    public static void ReturnClientPlayerAnimator(int playerId, InteractTrigger seatTrigger, bool isPassenger)
     {
         // find the player
         PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[playerId];
@@ -118,18 +136,39 @@ public static class PlayerUtils
             !playerController.isPlayerControlled)
         {
             // clear old references
-            driverCachedAnimatorController = null!;
-            playerAnimator = null!;
+            if (!isPassenger)
+            {
+                driverCachedAnimatorController = null!;
+                driverPlayerAnimator = null!;
+            }
+            else
+            {
+                passengerCachedAnimatorController = null!;
+                passengerPlayerAnimator = null!;
+            }
             return;
         }
 
         // reapply the original players animator, if it exists (which it should, and would be weird if it didn't)
-        playerController.playerBodyAnimator.runtimeAnimatorController =
-            driverCachedAnimatorController ?? StartOfRound.Instance.otherClientsAnimatorController;
+        if (!isPassenger)
+        {
+            playerController.playerBodyAnimator.runtimeAnimatorController =
+                driverCachedAnimatorController ?? StartOfRound.Instance.otherClientsAnimatorController;
 
-        // clear old references
-        driverCachedAnimatorController = null!;
-        playerAnimator = null!;
+            // clear old references
+            driverCachedAnimatorController = null!;
+            driverPlayerAnimator = null!;
+        }
+        else
+        {
+            playerController.playerBodyAnimator.runtimeAnimatorController =
+                passengerCachedAnimatorController ?? StartOfRound.Instance.otherClientsAnimatorController;
+
+            // clear old references
+            passengerCachedAnimatorController = null!;
+            passengerPlayerAnimator = null!;
+        }
+        ResetPlayerData(playerController);
     }
 
     /// <summary>
@@ -162,5 +201,14 @@ public static class PlayerUtils
             var animInfo = storedAnimations[layer];
             playerAnimator.Play(int.Parse(animInfo.stateName), layer, animInfo.normalizedTime);
         }
+    }
+
+    public static void ResetPlayerData(PlayerControllerB player)
+    {
+        var data = PlayerControllerBPatches.GetData(player);
+        data.currentCarAnimation = -1;
+        player.ladderCameraHorizontal = 0f;
+        data.vehicleCameraHorizontal = 0f;
+        data.lastVehicleCameraHorizontal = 0f;
     }
 }

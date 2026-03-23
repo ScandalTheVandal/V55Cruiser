@@ -209,4 +209,46 @@ public static class VehicleControllerPatches
         __instance.SpringDriverSeatLocalClient();
         return false;
     }
+
+    [HarmonyPatch(nameof(VehicleController.SetRadioOnLocalClient))]
+    [HarmonyPrefix]
+    static bool SetRadioOnLocalClient_Prefix(VehicleController __instance, bool __runOriginal, bool on, bool setClip)
+    {
+        if (!__runOriginal)
+            return false;
+
+        if (__instance is not v55VehicleController vehicle)
+            return true;
+
+        vehicle.SetRadioOnLocalClient(on, setClip);
+        return false;
+    }
+
+    [HarmonyPatch(nameof(VehicleController.SwitchRadio))]
+    [HarmonyPrefix]
+    static bool SwitchRadio_Prefix(VehicleController __instance, bool __runOriginal)
+    {
+        if (!__runOriginal)
+            return false;
+
+        if (__instance is not v55VehicleController vehicle)
+            return true;
+
+        vehicle.SwitchRadio();
+        return false;
+    }
+
+    [HarmonyPatch(nameof(VehicleController.ChangeRadioStation))]
+    [HarmonyPrefix]
+    static bool ChangeRadioStation_Prefix(VehicleController __instance, bool __runOriginal)
+    {
+        if (!__runOriginal)
+            return false;
+
+        if (__instance is not v55VehicleController vehicle)
+            return true;
+
+        vehicle.ChangeRadioStation();
+        return false;
+    }
 }

@@ -8,14 +8,6 @@ namespace v55Cruiser.Patches;
 [HarmonyPatch(typeof(BushWolfEnemy))]
 public static class BushWolfEnemyPatches
 {
-    [HarmonyPatch(nameof(BushWolfEnemy.Start))]
-    [HarmonyPrefix]
-    static void Start_Postfix(BushWolfEnemy __instance)
-    {
-        if (__instance == null) return;
-        References.kidnapperFox = __instance;
-    }
-
     [HarmonyPatch(nameof(BushWolfEnemy.Update))]
     [HarmonyPostfix]
     static void Update_Postfix(BushWolfEnemy __instance)

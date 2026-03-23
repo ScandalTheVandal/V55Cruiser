@@ -17,7 +17,7 @@ public static class TerrainObstacleTriggerPatches
         if (References.truckController == null)
             return true;
 
-        v55VehicleController controller = other.GetComponent<v55VehicleController>();
+        other.TryGetComponent<v55VehicleController>(out var controller);
         if (controller == null)
             return true;
 

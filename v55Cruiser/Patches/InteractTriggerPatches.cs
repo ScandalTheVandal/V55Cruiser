@@ -58,25 +58,32 @@ public static class InteractTriggerPatches
 
     public static IEnumerator SpecialTruckInteractAnimation(InteractTrigger trigger, PlayerControllerB playerController, v55VehicleController controller, bool isRightHandDrive, bool isPassenger)
     {
-        var data = PlayerControllerBPatches.GetData(playerController);
-        data.currentCarAnimation = -1;
+        PlayerUtils.ResetPlayerData(playerController);
+        // save a reference of the players current animator
         if (!isPassenger)
         {
-            // save a reference of the players current animator
             PlayerUtils.localDriverCachedAnimatorController = null!;
             PlayerUtils.localDriverCachedAnimatorController = GameObject.Instantiate(playerController.playerBodyAnimator.runtimeAnimatorController);
             PlayerUtils.localDriverCachedAnimatorController.name = "metarig";
             PlayerUtils.playerAnimator = playerController.playerBodyAnimator;
-
-            // save the parameters of the current animator
-            PlayerUtils.StoreParameters();
-
-            // apply the animator from our references
-            if (References.truckPlayerAnimator != null)
-                playerController.playerBodyAnimator.runtimeAnimatorController = References.truckPlayerAnimator;
+            PlayerUtils.driverPlayerAnimator = playerController.playerBodyAnimator;
         }
+        else
+        {
+            PlayerUtils.localPassengerCachedAnimatorController = null!;
+            PlayerUtils.localPassengerCachedAnimatorController = GameObject.Instantiate(playerController.playerBodyAnimator.runtimeAnimatorController);
+            PlayerUtils.localPassengerCachedAnimatorController.name = "metarig";
+            PlayerUtils.playerAnimator = playerController.playerBodyAnimator;
+            PlayerUtils.passengerPlayerAnimator = playerController.playerBodyAnimator;
+        }
+        // save the parameters of the current animator
+        PlayerUtils.StoreParameters();
+
+        // apply the animator from our references
+        if (References.truckPlayerAnimator != null)
+            playerController.playerBodyAnimator.runtimeAnimatorController = References.truckPlayerAnimator;
+
         trigger.UpdateUsedByPlayerServerRpc((int)playerController.playerClientId);
-        //trigger.onInteractEarly.Invoke(null);
         trigger.isPlayingSpecialAnimation = true;
         trigger.lockedPlayer = playerController.thisPlayerBody;
         trigger.playerScriptInSpecialAnimation = playerController;
@@ -134,9 +141,7 @@ public static class InteractTriggerPatches
 
         if (!__instance.overridePlayerParent.TryGetComponent<v55VehicleController>(out var controller))
             return true;
-
-        if (__instance != controller.driverSeatTrigger)
-            return true;
+        bool isPassenger = __instance.overridePlayerParent == controller.passengerSeatTrigger;
 
         if (specialInteractCoroutine != null)
         {
@@ -144,22 +149,30 @@ public static class InteractTriggerPatches
             specialInteractCoroutine = null!;
         }
 
-        // reapply the original players animator, if it exists
-        if (PlayerUtils.localDriverCachedAnimatorController != null)
+        if (!isPassenger && PlayerUtils.localDriverCachedAnimatorController != null)
         {
             playerController.playerBodyAnimator.runtimeAnimatorController = PlayerUtils.localDriverCachedAnimatorController;
+            PlayerUtils.RestoreParameters(); // restore the original parameters for the original animator
 
-            // restore the original parameters for the original animator
-            PlayerUtils.RestoreParameters();
+            PlayerUtils.localDriverCachedAnimatorController = null!;
+            PlayerUtils.driverPlayerAnimator = null!;
+        }
+        else if (isPassenger && PlayerUtils.localPassengerCachedAnimatorController != null)
+        {
+            playerController.playerBodyAnimator.runtimeAnimatorController = PlayerUtils.localPassengerCachedAnimatorController;
+            PlayerUtils.RestoreParameters(); // restore the original parameters for the original animator
+
+            PlayerUtils.localPassengerCachedAnimatorController = null!;
+            PlayerUtils.passengerPlayerAnimator = null!;
         }
         else
         {
             playerController.playerBodyAnimator.runtimeAnimatorController = StartOfRound.Instance.localClientAnimatorController;
+            Plugin.Logger.LogWarning("cached player animator was null!");
         }
-        playerController.playerBodyAnimator.ResetTrigger("SA_stopAnimation");
 
-        // clear old references
-        PlayerUtils.localDriverCachedAnimatorController = null!;
+        playerController.playerBodyAnimator.ResetTrigger("SA_stopAnimation");
+        PlayerUtils.ResetPlayerData(playerController);
         PlayerUtils.playerAnimator = null!;
         return true;
     }

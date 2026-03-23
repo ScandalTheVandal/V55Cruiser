@@ -10,9 +10,6 @@ public class VehiclePlayerPusher : MonoBehaviour
 
     public void OnTriggerStay(Collider other)
     {
-        //if (!thisController.IsOwner)
-        //    return;
-
         if (thisController.averageVelocity.magnitude > 8f)
             return;
 
@@ -28,6 +25,6 @@ public class VehiclePlayerPusher : MonoBehaviour
             return;
 
         Vector3 vel = thisController.mainRigidbody.position - thisController.previousVehiclePosition;
-        localPlayer.externalForceAutoFade += (vel * 1.5f) / Time.deltaTime;
+        localPlayer.externalForceAutoFade += (vel * 1.5f) / Time.fixedDeltaTime;
     }
 }

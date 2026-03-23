@@ -38,13 +38,6 @@ namespace v55Cruiser
             initialized = true;
             Logger = base.Logger;
             Instance = this;
-            //UserConfig.InitConfig();
-            VehicleControlsInstance = new VehicleControls();
-
-            NetcodePatcher();
-            Patch();
-
-            Logger.LogInfo($"{MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} has loaded!");
 
             AssetBundle CompanyCruiserBundle = AssetBundle.LoadFromFile(Path.Combine(Path.GetDirectoryName(Info.Location), "v55cruiser"));
             if (CompanyCruiserBundle == null)
@@ -94,15 +87,12 @@ namespace v55Cruiser
                 Logger.LogError("[AssetBundle] Failed to load runtime controller: truckPlayerMetarig");
             }
 
-            References.truckOtherPlayerAnimator = PlayerAnimationBundle.LoadAsset<RuntimeAnimatorController>("truckOtherPlayerMetarig.controller");
-            if (References.truckOtherPlayerAnimator != null)
-            {
-                Logger.LogInfo("[AssetBundle] Successfully loaded runtime controller: truckOtherPlayerMetarig");
-            }
-            else
-            {
-                Logger.LogError("[AssetBundle] Failed to load runtime controller: truckOtherPlayerMetarig");
-            }
+            VehicleControlsInstance = new VehicleControls();
+
+            NetcodePatcher();
+            Patch();
+
+            Logger.LogInfo($"{MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} has loaded!");
         }
 
         internal static void Patch()
@@ -113,6 +103,7 @@ namespace v55Cruiser
 
             Harmony.PatchAll();
 
+            // todo: look into a more modular system for this
             if (CompatibilityUtils.IsModPresent("voxx.LethalElementsPlugin"))
             {
                 LethalElementsCompatibility.PatchAllElements(Harmony);

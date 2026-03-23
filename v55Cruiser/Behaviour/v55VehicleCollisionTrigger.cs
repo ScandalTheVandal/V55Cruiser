@@ -1,7 +1,6 @@
 ﻿using GameNetcodeStuff;
-using System.ComponentModel;
 using UnityEngine;
-using v55Cruiser;
+using v55Cruiser.Patches;
 
 public class v55VehicleCollisionTrigger : MonoBehaviour
 {
@@ -25,13 +24,22 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
 
         if (other.CompareTag("Player"))
         {
-            PlayerControllerB playerComponent = other.GetComponent<PlayerControllerB>();
-            if (playerComponent == null)
+            other.TryGetComponent<PlayerControllerB>(out var playerController);
+            if (playerController == null)
+                return;
+
+            if (ScandalsTweaks.Utils.References.timeSinceDemagnetising < 0.25f)
                 return;
 
             // Prevent hitting players standing on/in the cruiser
             Transform physicsTransform = mainScript.physicsRegion.physicsTransform;
-            if (playerComponent.physicsParent == physicsTransform || playerComponent.overridePhysicsParent == physicsTransform)
+            if (playerController.physicsParent == physicsTransform || playerController.overridePhysicsParent == physicsTransform)
+                return;
+
+            var data = PlayerControllerBPatches.GetData(playerController);
+            if (data == null ||
+                data.isPlayerOnTruck ||
+                data.isPlayerInStorage)
                 return;
 
             if ((mainScript.localPlayerInControl || mainScript.localPlayerInPassengerSeat) || 
@@ -44,7 +52,7 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
                 return;
             }
 
-            Vector3 directionToPlayer = playerComponent.transform.position - mainScript.mainRigidbody.position;
+            Vector3 directionToPlayer = playerController.transform.position - mainScript.mainRigidbody.position;
             float angle = Vector3.Angle(Vector3.Normalize(mainScript.averageVelocity * 1000f), Vector3.Normalize(directionToPlayer * 1000f));
             if (angle > 70f)
                 return;
@@ -54,7 +62,7 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
                 velocityMagnitude += 6f;
             }
 
-            if ((playerComponent.gameplayCamera.transform.position - mainScript.mainRigidbody.position).y < -0.1f)
+            if ((playerController.gameplayCamera.transform.position - mainScript.mainRigidbody.position).y < -0.1f)
             {
                 velocityMagnitude *= 2f;
             }
@@ -62,7 +70,7 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             timeSinceHittingPlayer = Time.realtimeSinceStartup;
             Vector3 impactForce = Vector3.ClampMagnitude(mainScript.averageVelocity, 55f);
 
-            if (playerComponent == GameNetworkManager.Instance.localPlayerController)
+            if (playerController == GameNetworkManager.Instance.localPlayerController)
             {
                 if (physicsTransform == GameNetworkManager.Instance.localPlayerController.physicsParent)
                     return;
@@ -92,7 +100,7 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             }
             else if (mainScript.IsOwner && mainScript.averageVelocity.magnitude > 1.8f)
             {
-                mainScript.CarReactToObstacle(mainScript.averageVelocity, playerComponent.transform.position, mainScript.averageVelocity, CarObstacleType.Player);
+                mainScript.CarReactToObstacle(mainScript.averageVelocity, playerController.transform.position, mainScript.averageVelocity, CarObstacleType.Player);
             }
         }
         else
@@ -100,7 +108,7 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             if (!other.gameObject.CompareTag("Enemy"))
                 return;
 
-            EnemyAICollisionDetect enemyAIcollision = other.gameObject.GetComponent<EnemyAICollisionDetect>();
+            other.TryGetComponent<EnemyAICollisionDetect>(out var enemyAIcollision);
             if (enemyAIcollision == null)
                 return;
 
@@ -151,35 +159,17 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             timeSinceHittingEnemy = Time.realtimeSinceStartup;
             Vector3 position = enemyAIcollision.transform.position;
             bool enemyDamageByCar = false;
-            if (mainScript.truckType == TruckVersionType.V70)
+            switch (enemyAIcollision.mainScript.enemyType.EnemySize)
             {
-                switch (enemyAIcollision.mainScript.enemyType.EnemySize)
-                {
-                    case EnemySize.Tiny:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 1f, enemyAIcollision.mainScript, dealDamage);
-                        break;
-                    case EnemySize.Giant:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 3f, enemyAIcollision.mainScript, dealDamage);
-                        break;
-                    case EnemySize.Medium:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 2f, enemyAIcollision.mainScript, dealDamage);
-                        break;
-                }
-            }
-            else
-            {
-                switch (enemyAIcollision.mainScript.enemyType.SizeLimit)
-                {
-                    case NavSizeLimit.NoLimit:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 1f, enemyAIcollision.mainScript, dealDamage);
-                        break;
-                    case NavSizeLimit.MediumSpaces:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 3f, enemyAIcollision.mainScript, dealDamage);
-                        break;
-                    case NavSizeLimit.SmallSpaces:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 2f, enemyAIcollision.mainScript, dealDamage);
-                        break;
-                }
+                case EnemySize.Tiny:
+                    enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 1f, enemyAIcollision.mainScript, dealDamage);
+                    break;
+                case EnemySize.Giant:
+                    enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 3f, enemyAIcollision.mainScript, dealDamage);
+                    break;
+                case EnemySize.Medium:
+                    enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 2f, enemyAIcollision.mainScript, dealDamage);
+                    break;
             }
 
             if (enemyDamageByCar)

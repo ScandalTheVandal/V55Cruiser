@@ -90,43 +90,6 @@ public static class PlayerControllerBPatches
         return true;
     }
 
-    [HarmonyPatch(nameof(PlayerControllerB.LateUpdate))]
-    [HarmonyPostfix]
-    public static void SyncZoneStateLateUpdate_Postfix(PlayerControllerB __instance)
-    {
-        if (__instance == null ||
-            __instance.isPlayerDead ||
-            !__instance.isPlayerControlled)
-            return;
-
-        if (__instance != GameNetworkManager.Instance.localPlayerController)
-            return;
-
-        if (References.truckController == null)
-            return;
-        v55VehicleController controller = References.truckController;
-
-        if (checkInterval < 0.3f)
-        {
-            checkInterval += Time.deltaTime;
-            return;
-        }
-        checkInterval = 0f;
-        var data = GetData(__instance);
-
-        if (data.isPlayerOnTruck != PlayerUtils.isPlayerOnTruck ||
-            data.isPlayerInStorage != PlayerUtils.isPlayerInStorage)
-        {
-            data.isPlayerOnTruck = PlayerUtils.isPlayerOnTruck;
-            data.isPlayerInStorage = PlayerUtils.isPlayerInStorage;
-
-            controller.SyncPlayerZoneRpc(
-                (int)__instance.playerClientId,
-                PlayerUtils.isPlayerOnTruck,
-                PlayerUtils.isPlayerInStorage);
-        }
-    }
-
     /// <summary>
     ///  Available from CruiserImproved, licensed under MIT License.
     ///  Source: https://github.com/digger1213/CruiserImproved/blob/main/source/Patches/PlayerController.cs
@@ -156,6 +119,26 @@ public static class PlayerControllerBPatches
         }
         else if (!__instance.inVehicleAnimation && PlayerUtils.seatedInTruck == true)
             PlayerUtils.seatedInTruck = false;
+
+        if (checkInterval < 0.3f)
+        {
+            checkInterval += Time.deltaTime;
+            return;
+        }
+        checkInterval = 0f;
+        var data = GetData(__instance);
+        if (data == null) return;
+        if (data.isPlayerOnTruck != PlayerUtils.isPlayerOnTruck ||
+            data.isPlayerInStorage != PlayerUtils.isPlayerInStorage)
+        {
+            data.isPlayerOnTruck = PlayerUtils.isPlayerOnTruck;
+            data.isPlayerInStorage = PlayerUtils.isPlayerInStorage;
+
+            controller.SyncPlayerZoneRpc(
+                (int)__instance.playerClientId,
+                PlayerUtils.isPlayerOnTruck,
+                PlayerUtils.isPlayerInStorage);
+        }
     }
 
     // this fixes a really annoying visual bug with the players model, as 
@@ -173,12 +156,12 @@ public static class PlayerControllerBPatches
             !__instance.isPlayerControlled)
             return;
 
-        bool validTruck = __instance.inVehicleAnimation &&
-            __instance.currentTriggerInAnimationWith &&
-            __instance.currentTriggerInAnimationWith.overridePlayerParent;
+        if (References.truckController == null)
+            return;
+        v55VehicleController controller = References.truckController;
 
-        if (validTruck &&
-            __instance.currentTriggerInAnimationWith.overridePlayerParent.TryGetComponent<v55VehicleController>(out var controller))
+        bool validTruck = __instance.inVehicleAnimation && __instance.currentTriggerInAnimationWith && __instance.currentTriggerInAnimationWith.overridePlayerParent;
+        if (validTruck && __instance.currentTriggerInAnimationWith.overridePlayerParent == controller.transform)
         {
             // fix players first-person arms orientation after interacting with certain objects (i.e. terminal, start round lever) causing visual issues such as the ignition-key animation being off
             __instance.playerModelArmsMetarig.parent.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
