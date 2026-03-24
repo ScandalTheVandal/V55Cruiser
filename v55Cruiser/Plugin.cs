@@ -1,14 +1,13 @@
 using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Logging;
-using CruiserXL.Compatibility;
+using v55Cruiser.Compatibility;
 using HarmonyLib;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Unity.Netcode;
 using UnityEngine;
-using v55Cruiser.Compatibility;
 using v55Cruiser.Utils;
 using static v55Cruiser.Utils.UserVehicleControls;
 
@@ -16,6 +15,7 @@ namespace v55Cruiser
 {
     [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
     [BepInDependency("com.rune580.LethalCompanyInputUtils", BepInDependency.DependencyFlags.HardDependency)]
+    [BepInDependency("ScandalsTweaks", BepInDependency.DependencyFlags.HardDependency)] // need to rename this
     [BepInDependency("voxx.LethalElementsPlugin", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
@@ -25,7 +25,7 @@ namespace v55Cruiser
 
         private static bool initialized;
 
-        internal static List<GameObject> _networkPrefabs = new List<GameObject>();
+        internal static List<GameObject> networkPrefabs = new List<GameObject>();
         public static GameObject CompanyCruiserPrefab { get; internal set; } = null!;
         public static GameObject CompanyCruiserManualPrefab { get; internal set; } = null!;
 
@@ -50,8 +50,8 @@ namespace v55Cruiser
             CompanyCruiserManualPrefab = CompanyCruiserBundle.LoadAsset<GameObject>("CompanyCruiserManual.prefab");
             if (CompanyCruiserPrefab != null)
             {
-                if (!_networkPrefabs.Contains(CompanyCruiserPrefab))
-                    _networkPrefabs.Add(CompanyCruiserPrefab);
+                if (!networkPrefabs.Contains(CompanyCruiserPrefab))
+                    networkPrefabs.Add(CompanyCruiserPrefab);
                 Logger.LogInfo("[AssetBundle] Successfully loaded prefab: CompanyCruiser");
             }
             else
@@ -61,8 +61,8 @@ namespace v55Cruiser
 
             if (CompanyCruiserManualPrefab != null)
             {
-                if (!_networkPrefabs.Contains(CompanyCruiserManualPrefab))
-                    _networkPrefabs.Add(CompanyCruiserManualPrefab);
+                if (!networkPrefabs.Contains(CompanyCruiserManualPrefab))
+                    networkPrefabs.Add(CompanyCruiserManualPrefab);
                 Logger.LogInfo("[AssetBundle] Successfully loaded prefab: CompanyCruiserManual");
             }
             else
@@ -88,6 +88,7 @@ namespace v55Cruiser
             }
 
             VehicleControlsInstance = new VehicleControls();
+            UserConfig.InitConfig();
 
             NetcodePatcher();
             Patch();
@@ -134,32 +135,6 @@ namespace v55Cruiser
                     {
                         method.Invoke(null, null);
                     }
-                }
-            }
-        }
-    }
-
-    [HarmonyPatch]
-    internal static class HarmonyPatches
-    {
-        [HarmonyPatch(typeof(GameNetworkManager), "Start")]
-        [HarmonyPostfix]
-        private static void GameNetworkManager_Start(GameNetworkManager __instance)
-        {
-            if (__instance.gameVersionNum >= 55)
-            {
-                foreach (GameObject obj in Plugin._networkPrefabs)
-                {
-                    if (!NetworkManager.Singleton.NetworkConfig.Prefabs.Contains(obj))
-                        NetworkManager.Singleton.AddNetworkPrefab(obj);
-                }
-            }
-            else
-            {
-                foreach (GameObject obj in Plugin._networkPrefabs)
-                {
-                    if (NetworkManager.Singleton.NetworkConfig.Prefabs.Contains(obj))
-                        NetworkManager.Singleton.RemoveNetworkPrefab(obj);
                 }
             }
         }

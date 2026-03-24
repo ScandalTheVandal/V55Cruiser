@@ -65,20 +65,6 @@ public static class PlayerControllerBPatches
         }
     }
 
-    [HarmonyPatch(nameof(PlayerControllerB.TeleportPlayer))]
-    [HarmonyPostfix]
-    static void TeleportPlayer_Postfix(PlayerControllerB __instance, Vector3 pos, bool withRotation = false, float rot = 0f, bool allowInteractTrigger = false, bool enableController = true)
-    {
-        if (__instance != GameNetworkManager.Instance.localPlayerController)
-            return;
-
-        if (References.truckController == null)
-            return;
-
-        PlayerUtils.isPlayerOnTruck = false;
-        PlayerUtils.isPlayerInStorage = false;
-    }
-
     [HarmonyPatch(nameof(PlayerControllerB.UpdatePlayerAnimationsToOtherClients))]
     [HarmonyPrefix]
     static bool UpdatePlayerAnimationsToOtherClients_Prefix(PlayerControllerB __instance, Vector2 moveInputVector)
@@ -120,14 +106,13 @@ public static class PlayerControllerBPatches
         else if (!__instance.inVehicleAnimation && PlayerUtils.seatedInTruck == true)
             PlayerUtils.seatedInTruck = false;
 
-        if (checkInterval < 0.3f)
+        if (checkInterval <= 0.3f)
         {
             checkInterval += Time.deltaTime;
             return;
         }
         checkInterval = 0f;
         var data = GetData(__instance);
-        if (data == null) return;
         if (data.isPlayerOnTruck != PlayerUtils.isPlayerOnTruck ||
             data.isPlayerInStorage != PlayerUtils.isPlayerInStorage)
         {

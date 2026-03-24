@@ -1,9 +1,8 @@
 ﻿using GameNetcodeStuff;
 using HarmonyLib;
-using v55Cruiser.Patches;
 using v55Cruiser.Utils;
 
-namespace CruiserXL.Patches;
+namespace v55Cruiser.Patches;
 
 [HarmonyPatch(typeof(EnemyAI))]
 public static class EnemyAIPatches

@@ -6,11 +6,8 @@ using VoxxWeatherPlugin.Patches;
 using System.Runtime.CompilerServices;
 using VoxxWeatherPlugin.Weathers;
 using VoxxWeatherPlugin.Utils;
-using System.Collections;
-using v55Cruiser;
-using VoxxWeatherPlugin;
 
-namespace CruiserXL.Compatibility;
+namespace v55Cruiser.Compatibility;
 
 public class LethalElementsCompatibility
 {

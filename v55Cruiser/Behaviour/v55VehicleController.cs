@@ -3,9 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using GameNetcodeStuff;
+using HarmonyLib;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.XR;
 using UnityEngine.Rendering.HighDefinition;
 using v55Cruiser;
 using v55Cruiser.Behaviour;
@@ -165,13 +167,21 @@ public class v55VehicleController : VehicleController
             return;
 
         int interiorVariant = new System.Random(StartOfRound.Instance.randomMapSeed).Next(0, 2);
+        bool babyRadio = UserConfig.BabyFaceRadio.Value;
         SetInteriorTypeRpc(interiorVariant);
+        if (babyRadio) AddBabyFaceRadioRpc();
     }
 
     [Rpc(SendTo.Everyone, RequireOwnership = false)]
     public void SetInteriorTypeRpc(int carInteriorType)
     {
         SetInteriorType(carInteriorType);
+    }
+
+    [Rpc(SendTo.Everyone, RequireOwnership = false)]
+    public void AddBabyFaceRadioRpc()
+    {
+        radioClips = radioClips.AddToArray<AudioClip>(radio_BabyFace);
     }
 
     public void SetInteriorType(int carInteriorType)
@@ -256,7 +266,7 @@ public class v55VehicleController : VehicleController
         // apply the actual SFX sound mixer so TZP effects and whatnot will work (subtle, but nice to have)
         foreach (AudioSource audio in audiosArray)
         {
-            audio.outputAudioMixerGroup = References.diageticSFXGroup;
+            audio.outputAudioMixerGroup = ScandalsTweaks.Utils.References.diageticSFXGroup;
         }
     }
 
@@ -456,13 +466,14 @@ public class v55VehicleController : VehicleController
         {
             interiorType = 0;
         }
-        SyncClientDataRpc(interiorType);
+        SyncClientDataRpc(interiorType, UserConfig.BabyFaceRadio.Value);
     }
 
     [Rpc(SendTo.NotServer, RequireOwnership = false)]
-    public void SyncClientDataRpc(int carInteriorType)
+    public void SyncClientDataRpc(int carInteriorType, bool baby)
     {
         SetInteriorType(carInteriorType);
+        if (baby) radioClips = radioClips.AddToArray<AudioClip>(radio_BabyFace);
     }
 
 
@@ -1685,6 +1696,8 @@ public class v55VehicleController : VehicleController
             }
         }
 
+//        HUDManager.Instance.SetDebugText($"ontruck: {PlayerUtils.isPlayerOnTruck}\nstor: {PlayerUtils.isPlayerInStorage}");
+
         ReactToDamage();
 
         if (carDestroyed)
@@ -1760,8 +1773,11 @@ public class v55VehicleController : VehicleController
             SyncCarWheelTorqueToOtherClients();
             return;
         }
-        if (ignitionStarted) EngineRPM = Mathf.MoveTowards(EngineRPM, syncedEngineRPM, 6f * Time.deltaTime);
-        wheelRPM = Mathf.MoveTowards(wheelRPM, syncedWheelRPM, Time.deltaTime * 4f);
+
+        if (ignitionStarted) EngineRPM = syncedEngineRPM;
+        frontWheelRPM = syncedFrontWheelRPM;
+        backWheelRPM = syncedBackWheelRPM;
+        wheelRPM = syncedWheelRPM;
 
         moveInputVector = syncedMoveInputVector;
         steeringAnimValue = moveInputVector.x;
@@ -2254,8 +2270,9 @@ public class v55VehicleController : VehicleController
         //    reverseWhineAudio.volume = Mathf.Lerp(reverseWhineAudio.volume, 0f, 16f * Time.deltaTime);
         //}
 
-        float currentXInput = Mathf.Abs(moveInputVector.x);
-        SetVehicleAudioProperties(steeringWheelAudio, currentXInput > 0.1f, 0f, currentXInput, 5f, true);
+        //float currentXInput = Mathf.Abs(moveInputVector.x);
+        //SetVehicleAudioProperties(steeringWheelAudio, currentXInput > 0.1f, 0f, currentXInput, 5f, true);
+        //SetVehicleAudioProperties(steeringWheelAudio, currentXInput > 0.1f, 0f, currentXInput, 5f, true);
 
         turbulenceAudio.volume = Mathf.Lerp(turbulenceAudio.volume, Mathf.Min(1f, turbulenceAmount), 10f * Time.deltaTime);
         turbulenceAmount = Mathf.Max(turbulenceAmount - Time.deltaTime, 0f);
@@ -2298,8 +2315,8 @@ public class v55VehicleController : VehicleController
         if (base.IsOwner)
         {
             float vehicleSpeed = Vector3.Dot(Vector3.Normalize(mainRigidbody.velocity * 1000f), transform.forward);
-            float wheelSpeed = Mathf.Abs(frontWheelRPM);
-            bool audioActive = vehicleSpeed > -0.6f && vehicleSpeed < 0.4f && (averageVelocity.magnitude > 4f || (wheelSpeed > 65f));
+            float wheelSpeed = Mathf.Abs(backWheelRPM);
+            bool audioActive = vehicleSpeed > -0.6f && vehicleSpeed < 0.4f && (averageVelocity.magnitude > 4f || wheelSpeed > 400f);
             bool wheelsGrounded = BackLeftWheel.isGrounded && BackRightWheel.isGrounded;
 
             if (wheelsGrounded)
@@ -2308,8 +2325,8 @@ public class v55VehicleController : VehicleController
 
                 if (forwardSlipping)
                 {
-                    vehicleSpeed = Mathf.Max(vehicleSpeed, 0.8f);
                     audioActive = true;
+                    vehicleSpeed = Mathf.Max(vehicleSpeed, 0.8f);
 
                     if (averageVelocity.magnitude > 8f && !tireSparks.isPlaying)
                         tireSparks.Play(true);
@@ -2328,7 +2345,7 @@ public class v55VehicleController : VehicleController
 
             SetVehicleAudioProperties(skiddingAudio, audioActive, 0f, vehicleSpeed, 3f, true, 1f);
 
-            if (Mathf.Abs(tyreStress - vehicleSpeed) > 0.04f || wheelSlipping != audioActive)
+            if (Mathf.Abs(tyreStress - vehicleSpeed) > 0.025f || wheelSlipping != audioActive)
                 SetTyreStressRpc(vehicleSpeed, audioActive);
 
             return;
@@ -2583,7 +2600,7 @@ public class v55VehicleController : VehicleController
         frontWheelRPM = NormaliseFloat((FrontLeftWheel.rpm + FrontRightWheel.rpm) / 2f);
         backWheelRPM = NormaliseFloat((BackLeftWheel.rpm + BackRightWheel.rpm) / 2f);
         wheelRPM = NormaliseFloat((frontWheelRPM + backWheelRPM) / 2f);
-        EngineRPM = Mathf.Abs(wheelRPM);
+        if (ignitionStarted) EngineRPM = Mathf.Abs(wheelRPM);
 
         bool allWheelsAirborne = !FrontLeftWheel.isGrounded &&
                                  !FrontRightWheel.isGrounded &&
@@ -2703,32 +2720,25 @@ public class v55VehicleController : VehicleController
 
     public void SyncCarDrivetrainToOtherClients()
     {
-        if (frontWheelRPM == 0f && backWheelRPM == 0f &&
-            syncedFrontWheelRPM != 0f && syncedBackWheelRPM != 0f)
-        {
-            syncCarDrivetrainInterval = 0f;
-            syncedFrontWheelRPM = 0f;
-            syncedBackWheelRPM = 0f;
-            syncedEngineRPM = 0f;
-            SyncCarDrivetrainRpc(0f, 0f);
-            return;
-        }
         float syncThreshold = 0.14f * averageVelocity.magnitude;
-        syncThreshold = Mathf.Clamp(syncThreshold, 0.14f, 0.34f);
+        syncThreshold = Mathf.Clamp(syncThreshold, 0.14f, 0.21f);
         if (syncCarDrivetrainInterval >= syncThreshold)
         {
-            float fWheelSyncRPM = Mathf.Floor(frontWheelRPM / 5f) * 5f;
-            float bWheelSyncRPM = Mathf.Floor(backWheelRPM / 5f) * 5f;
+            float fWheelSyncRPM = NormaliseFloat(Mathf.Round(frontWheelRPM));
+            float bWheelSyncRPM = NormaliseFloat(Mathf.Round(backWheelRPM));
 
             if (syncedFrontWheelRPM != fWheelSyncRPM ||
                 syncedBackWheelRPM != bWheelSyncRPM)
             {
                 syncCarDrivetrainInterval = 0f;
+
                 syncedFrontWheelRPM = fWheelSyncRPM;
                 syncedBackWheelRPM = bWheelSyncRPM;
-                syncedWheelRPM = ((frontWheelRPM + backWheelRPM) / 2f);
-                syncedEngineRPM = Mathf.Abs(frontWheelRPM);
-                SyncCarDrivetrainRpc(frontWheelRPM, backWheelRPM);
+
+                syncedWheelRPM = wheelRPM;
+                syncedEngineRPM = EngineRPM;
+
+                SyncCarDrivetrainRpc(frontWheelRPM, backWheelRPM, wheelRPM);
                 return;
             }
         }
@@ -2739,29 +2749,26 @@ public class v55VehicleController : VehicleController
     }
 
     [Rpc(SendTo.NotOwner, RequireOwnership = false)]
-    public void SyncCarDrivetrainRpc(float frontWheelSpeed, float backWheelSpeed)
+    public void SyncCarDrivetrainRpc(float frontWheelSpeed, float backWheelSpeed, float wheelSpeed)
     {
         syncedFrontWheelRPM = frontWheelSpeed;
         syncedBackWheelRPM = backWheelSpeed;
-        syncedWheelRPM = ((frontWheelSpeed + backWheelSpeed) / 2f);
-        syncedEngineRPM = Mathf.Abs(syncedWheelRPM);
+        syncedWheelRPM = wheelSpeed;
+        syncedEngineRPM = Mathf.Abs(wheelSpeed);
     }
 
     public void SyncCarWheelTorqueToOtherClients()
     {
-        float syncThreshold = 0.04f * averageVelocity.magnitude;
-        syncThreshold = Mathf.Clamp(syncThreshold, 0.04f, 0.3f);
+        float syncThreshold = 0.14f * averageVelocity.magnitude;
+        syncThreshold = Mathf.Clamp(syncThreshold, 0.14f, 0.22f);
         if (syncWheelTorqueInterval >= syncThreshold)
         {
-            float motorTorqueSync = Mathf.Floor(wheelTorque / 10f) * 10f;
-            float brakeTorqueSync = Mathf.Floor(wheelBrakeTorque / 10f) * 10f;
-
-            if (syncedMotorTorque != motorTorqueSync || 
-                syncedBrakeTorque != brakeTorqueSync)
+            if (Mathf.Abs(syncedMotorTorque - wheelTorque) > 10f ||
+                Mathf.Abs(syncedBrakeTorque - wheelBrakeTorque) > 10f)
             {
                 syncWheelTorqueInterval = 0f;
-                syncedMotorTorque = motorTorqueSync;
-                syncedBrakeTorque = brakeTorqueSync;
+                syncedMotorTorque = wheelTorque;
+                syncedBrakeTorque = wheelBrakeTorque;
                 SyncWheelTorqueRpc(wheelTorque, wheelBrakeTorque);
                 return;
             }

@@ -14,33 +14,6 @@ public class TruckPlayerZone : MonoBehaviour
     public int priority;
     public float checkInterval;
 
-    public void Start()
-    {
-        checkInterval = Random.Range(0f, 0.4f);
-    }
-
-    public void OnTriggerExit(Collider other)
-    {
-        if (controller == null) return;
-        if (other.gameObject != GameNetworkManager.Instance.localPlayerController.gameObject) return;
-        if (PlayerUtils.seatedInTruck) return;
-
-        switch (priority)
-        {
-            case 1:
-                PlayerUtils.isPlayerOnTruck = false;
-                if (controller.averageVelocity.magnitude >= 2f &&
-                    controller.mainRigidbody.velocity.magnitude >= 2f)
-                {
-                    GameNetworkManager.Instance.localPlayerController.externalForceAutoFade += controller.averageVelocity * 0.9f;
-                }
-                break;
-            case 2:
-                PlayerUtils.isPlayerInStorage = false;
-                break;
-        }
-    }
-
     public void OnTriggerStay(Collider other)
     {
         if (controller == null) return;
@@ -64,15 +37,12 @@ public class TruckPlayerZone : MonoBehaviour
 
     private void Update()
     {
-        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
-        if (!VehicleUtils.IsPlayerNearTruck(playerController, controller) &&
-            (PlayerUtils.isPlayerOnTruck ||
-            PlayerUtils.isPlayerInStorage))
+        if (PlayerUtils.seatedInTruck)
         {
-            PlayerUtils.isPlayerOnTruck = false;
-            PlayerUtils.isPlayerInStorage = false;
             checkInterval = 0f;
-            hasLocalPlayer = false;
+            if (priority == 1) hasLocalPlayer = true;
+            else hasLocalPlayer = false;
+            return;
         }
         if (!hasLocalPlayer)
         {
@@ -85,5 +55,7 @@ public class TruckPlayerZone : MonoBehaviour
         }
         checkInterval = 0f;
         hasLocalPlayer = false;
+        if (priority == 1) PlayerUtils.isPlayerOnTruck = false;
+        else PlayerUtils.isPlayerInStorage = false;
     }
 }

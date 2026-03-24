@@ -2,6 +2,7 @@ using HarmonyLib;
 using System;
 using UnityEngine;
 using v55Cruiser.Utils;
+using System.Linq;
 
 namespace v55Cruiser.Patches;
 
@@ -9,6 +10,7 @@ namespace v55Cruiser.Patches;
 public static class StartOfRoundPatches
 {
     [HarmonyPatch(nameof(StartOfRound.Awake))]
+    [HarmonyAfter("butterystancakes.lethalcompany.radiobabyface")]
     [HarmonyPostfix]
     private static void Awake_Postfix(StartOfRound __instance)
     {

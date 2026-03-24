@@ -28,9 +28,6 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             if (playerController == null)
                 return;
 
-            if (ScandalsTweaks.Utils.References.timeSinceDemagnetising < 0.25f)
-                return;
-
             // Prevent hitting players standing on/in the cruiser
             Transform physicsTransform = mainScript.physicsRegion.physicsTransform;
             if (playerController.physicsParent == physicsTransform || playerController.overridePhysicsParent == physicsTransform)

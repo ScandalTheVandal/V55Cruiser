@@ -12,7 +12,6 @@ public static class References
 
     // fixes
     internal static PlayerControllerB lastDriver = null!;
-    internal static AudioMixerGroup diageticSFXGroup = null!;
 
     // custom animations
     internal static RuntimeAnimatorController truckPlayerAnimator = null!;
