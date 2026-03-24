@@ -3,6 +3,14 @@ using HarmonyLib;
 
 namespace v55Cruiser.Compatibility;
 
+/// <summary>
+///  Available from BrutalCompanyMinus, licensed under MIT licence.
+///  Source: https://github.com/Sylkadi/BrutalCompanyMinus
+
+///  Available from BrutalCompanyMinusExtraReborn, licensed under GNU General Public License.
+///  Source: https://github.com/TheSoftDiamond/BrutalCompanyMinusExtraReborn
+/// </summary>
+
 [HarmonyPatch]
 public class CompatibilityUtils
 {
