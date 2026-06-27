@@ -6,6 +6,8 @@ using VoxxWeatherPlugin.Patches;
 using System.Runtime.CompilerServices;
 using VoxxWeatherPlugin.Weathers;
 using VoxxWeatherPlugin.Utils;
+using v55Cruiser.Patches;
+using UnityEngine.InputSystem.XR;
 
 namespace v55Cruiser.Compatibility;
 
@@ -17,10 +19,10 @@ namespace v55Cruiser.Compatibility;
 ///  Source: https://github.com/TheSoftDiamond/BrutalCompanyMinusExtraReborn
 /// </summary>
 
-public class LethalElementsCompatibility
+public static class LethalElementsCompatibility
 {
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void PatchAllElements(Harmony harmony)
+    public static void PatchAllCompatibilityMethods(Harmony harmony)
     {
         ApplyElementsPatch(harmony);
     }
@@ -68,24 +70,26 @@ public class LethalElementsCompatibility
     {
         if (HeatwaveWeather.Instance == null || !HeatwaveWeather.Instance.IsActive)
             return;
-        if (References.truckController == null)
-            return;
-        if (!PlayerUtils.isPlayerOnTruck &&
-            !PlayerUtils.seatedInTruck &&
-            !PlayerUtils.isPlayerInStorage)
-            return;
 
         v55VehicleController controller = References.truckController;
+        if (controller == null)
+            return;
+
+        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
+            !VehicleUtils.IsPlayerSeatedInTruck() &&
+            !VehicleUtils.IsPlayerInTruckStorage(controller))
+            return;
+
         bool isStorageEnclosed = !controller.liftGateOpen;
-        bool outsideOfTruck = PlayerUtils.isPlayerOnTruck && !PlayerUtils.seatedInTruck && !PlayerUtils.isPlayerInStorage;
+        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) && !VehicleUtils.IsPlayerSeatedInTruck() && !VehicleUtils.IsPlayerInTruckStorage(controller);
         PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
         bool inDoorLighting = localPlayer.currentAudioTrigger != null && localPlayer.currentAudioTrigger.insideLighting;
 
-        if (PlayerUtils.seatedInTruck)
+        if (VehicleUtils.IsPlayerSeatedInTruck())
         {
             PlayerEffectsManager.heatTransferRate = controller.windshieldBroken ? 0.9f : 0.2f;
         }
-        else if (PlayerUtils.isPlayerInStorage && isStorageEnclosed)
+        else if (VehicleUtils.IsPlayerInTruckStorage(controller) && isStorageEnclosed)
         {
             if (!inDoorLighting)
             {
@@ -108,25 +112,21 @@ public class LethalElementsCompatibility
         {
             return;
         }
-
-        bool enableTracker = __instance.FrontLeftWheel.isGrounded ||
-                                __instance.FrontRightWheel.isGrounded ||
-                                __instance.BackLeftWheel.isGrounded ||
-                                __instance.BackRightWheel.isGrounded;
-        SnowTrackersManager.UpdateFootprintTracker(__instance, enableTracker);
+        SnowTrackersManager.UpdateFootprintTracker(__instance, !__instance.allWheelsAirborne);
     }
 
     public static void VFXUpdate_Postfix()
     {
-        if (References.truckController == null)
+        v55VehicleController controller = References.truckController;
+        if (controller == null)
             return;
 
-        if (!PlayerUtils.isPlayerOnTruck &&
-            !PlayerUtils.seatedInTruck &&
-            !PlayerUtils.isPlayerInStorage)
+        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
+            !VehicleUtils.IsPlayerSeatedInTruck() &&
+            !VehicleUtils.IsPlayerInTruckStorage(controller))
             return;
 
-        if (PlayerUtils.seatedInTruck || PlayerUtils.isPlayerInStorage)
+        if (VehicleUtils.IsPlayerSeatedInTruck() || VehicleUtils.IsPlayerInTruckStorage(controller))
         {
             PlayerEffectsManager.isUnderSnow = false;
             SnowfallVFXManager.snowMovementHindranceMultiplier = 1f;
@@ -135,11 +135,13 @@ public class LethalElementsCompatibility
 
     public static bool SetColdZoneState_Prefix(BlizzardWeather __instance)
     {
-        if (References.truckController == null)
+        v55VehicleController controller = References.truckController;
+        if (controller == null)
             return true;
-        if (PlayerUtils.isPlayerOnTruck ||
-            PlayerUtils.seatedInTruck ||
-            PlayerUtils.isPlayerInStorage)
+
+        if (VehicleUtils.IsPlayerInTruckBounds(controller) ||
+            VehicleUtils.IsPlayerSeatedInTruck() ||
+            VehicleUtils.IsPlayerInTruckStorage(controller))
             return false;
         return true;
     }
@@ -148,25 +150,27 @@ public class LethalElementsCompatibility
     {
         if (BlizzardWeather.Instance == null)
             return true;
-        if (References.truckController == null)
-            return true;
-        if (!PlayerUtils.isPlayerOnTruck &&
-            !PlayerUtils.seatedInTruck &&
-            !PlayerUtils.isPlayerInStorage)
-            return true;
 
         v55VehicleController controller = References.truckController;
+        if (controller == null)
+            return true;
+
+        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
+            !VehicleUtils.IsPlayerSeatedInTruck() &&
+            !VehicleUtils.IsPlayerInTruckStorage(controller))
+            return true;
+
         bool isStorageEnclosed = !controller.liftGateOpen;
-        bool outsideOfTruck = PlayerUtils.isPlayerOnTruck && !PlayerUtils.seatedInTruck && !PlayerUtils.isPlayerInStorage;
+        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) && !VehicleUtils.IsPlayerSeatedInTruck() && !VehicleUtils.IsPlayerInTruckStorage(controller);
         PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
         bool inDoorLighting = localPlayer.currentAudioTrigger != null && localPlayer.currentAudioTrigger.insideLighting;
 
-        if (PlayerUtils.seatedInTruck)
+        if (VehicleUtils.IsPlayerSeatedInTruck())
         {
             PlayerEffectsManager.isInColdZone = IsWindAllowedVehicle(localPlayer, controller) && BlizzardWeather.Instance.isLocalPlayerInWind;
             return false;
         }
-        else if (PlayerUtils.isPlayerInStorage)
+        else if (VehicleUtils.IsPlayerInTruckStorage(controller))
         {
             if (isStorageEnclosed)
             {
@@ -188,18 +192,18 @@ public class LethalElementsCompatibility
 
     public static bool Update_Prefix(BlizzardWeather __instance)
     {
-        if (References.truckController == null)
-            return true;
-
-        if (!PlayerUtils.isPlayerOnTruck &&
-            !PlayerUtils.seatedInTruck &&
-            !PlayerUtils.isPlayerInStorage)
-            return true;
-
         v55VehicleController controller = References.truckController;
+        if (controller == null)
+            return true;
+
+        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
+            !VehicleUtils.IsPlayerSeatedInTruck() &&
+            !VehicleUtils.IsPlayerInTruckStorage(controller))
+            return true;
+
         bool isStorageEnclosed = !controller.liftGateOpen;
-        bool inCabOrStorage = PlayerUtils.seatedInTruck || PlayerUtils.isPlayerInStorage;
-        bool outsideOfTruck = PlayerUtils.isPlayerOnTruck && !PlayerUtils.seatedInTruck && !PlayerUtils.isPlayerInStorage;
+        bool inCabOrStorage = VehicleUtils.IsPlayerSeatedInTruck() || VehicleUtils.IsPlayerInTruckStorage(controller);
+        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) && !VehicleUtils.IsPlayerSeatedInTruck() && !VehicleUtils.IsPlayerInTruckStorage(controller);
         PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
         bool inDoorLighting = localPlayer.currentAudioTrigger != null && localPlayer.currentAudioTrigger.insideLighting;
 
@@ -223,9 +227,9 @@ public class LethalElementsCompatibility
                 localPlayer.currentAudioTrigger.insideLighting) return false;
 
         bool isStorageEnclosed = !controller.liftGateOpen;
-        bool outsideOfTruck = PlayerUtils.isPlayerOnTruck || PlayerUtils.seatedInTruck;
+        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) || VehicleUtils.IsPlayerSeatedInTruck();
 
-        if (PlayerUtils.isPlayerInStorage && !isStorageEnclosed)
+        if (VehicleUtils.IsPlayerInTruckStorage(controller) && !isStorageEnclosed)
         {
             return true;
         }
@@ -238,21 +242,22 @@ public class LethalElementsCompatibility
 
     public static bool CheckConditionsForHeatingStop_Prefix(PlayerControllerB playerController, ref bool __result)
     {
-        if (References.truckController == null)
-            return true;
-        if (!PlayerUtils.isPlayerOnTruck &&
-            !PlayerUtils.seatedInTruck &&
-            !PlayerUtils.isPlayerInStorage)
+        v55VehicleController controller = References.truckController;
+        if (controller == null)
             return true;
 
-        v55VehicleController controller = References.truckController;
+        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
+            !VehicleUtils.IsPlayerSeatedInTruck() &&
+            !VehicleUtils.IsPlayerInTruckStorage(controller))
+            return true;
+
         bool isStorageEnclosed = !controller.liftGateOpen;
-        bool outsideOfTruck = PlayerUtils.isPlayerOnTruck && !PlayerUtils.seatedInTruck && !PlayerUtils.isPlayerInStorage;
+        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) && !VehicleUtils.IsPlayerSeatedInTruck() && !VehicleUtils.IsPlayerInTruckStorage(controller);
         bool inDoorLighting = playerController.currentAudioTrigger != null && playerController.currentAudioTrigger.insideLighting;
 
-        if (PlayerUtils.isPlayerInStorage && isStorageEnclosed)
+        if (VehicleUtils.IsPlayerInTruckStorage(controller) && isStorageEnclosed)
         {
-             __result = true;
+            __result = true;
         }
         else
         {
@@ -264,11 +269,13 @@ public class LethalElementsCompatibility
 
     public static bool CheckConditionsForHeatingPause_Prefix(PlayerControllerB playerController, ref bool __result)
     {
-        if (References.truckController == null)
+        v55VehicleController controller = References.truckController;
+        if (controller == null)
             return true;
-        if (!PlayerUtils.isPlayerOnTruck &&
-            !PlayerUtils.seatedInTruck &&
-            !PlayerUtils.isPlayerInStorage)
+
+        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
+            !VehicleUtils.IsPlayerSeatedInTruck() &&
+            !VehicleUtils.IsPlayerInTruckStorage(controller))
             return true;
 
         __result = false;

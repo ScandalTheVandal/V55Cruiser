@@ -5,95 +5,69 @@ using v55Cruiser.Compatibility;
 using HarmonyLib;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
-using Unity.Netcode;
 using UnityEngine;
 using v55Cruiser.Utils;
-using static v55Cruiser.Utils.UserVehicleControls;
 
 namespace v55Cruiser
 {
     [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
     [BepInDependency("com.rune580.LethalCompanyInputUtils", BepInDependency.DependencyFlags.HardDependency)]
-    [BepInDependency("ScandalsTweaks", BepInDependency.DependencyFlags.HardDependency)] // need to rename this
+    [BepInDependency("scandal.scandalstweaks", BepInDependency.DependencyFlags.HardDependency)]
     [BepInDependency("voxx.LethalElementsPlugin", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("NoteBoxz.LethalMin", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("ImmersiveVisor", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         public static Plugin Instance { get; private set; } = null!;
         internal new static ManualLogSource Logger { get; private set; } = null!;
         internal static Harmony? Harmony { get; set; }
 
-        private static bool initialized;
-
         internal static List<GameObject> networkPrefabs = new List<GameObject>();
-        public static GameObject CompanyCruiserPrefab { get; internal set; } = null!;
-        public static GameObject CompanyCruiserManualPrefab { get; internal set; } = null!;
 
         public void Awake()
         {
-            if (initialized)
-            {
-                return;
-            }
-            initialized = true;
             Logger = base.Logger;
             Instance = this;
 
+            LoadAssetBundlesAndRegister();
+            UserConfig.InitConfig();
+
+            Patch();
+            Logger.LogInfo($"V55: {MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} has loaded!");
+        }
+
+        private void LoadAssetBundlesAndRegister()
+        {
             AssetBundle CompanyCruiserBundle = AssetBundle.LoadFromFile(Path.Combine(Path.GetDirectoryName(Info.Location), "v55cruiser"));
             if (CompanyCruiserBundle == null)
             {
-                Logger.LogError("[AssetBundle] Failed to load asset bundle: v55cruiser");
+                Logger.LogError("V55: [AssetBundle] Failed to load asset bundle: v55cruiser");
                 return;
             }
 
-            CompanyCruiserPrefab = CompanyCruiserBundle.LoadAsset<GameObject>("CompanyCruiser.prefab");
-            CompanyCruiserManualPrefab = CompanyCruiserBundle.LoadAsset<GameObject>("CompanyCruiserManual.prefab");
-            if (CompanyCruiserPrefab != null)
+            References.companyCruiserPrefab = CompanyCruiserBundle.LoadAsset<GameObject>("CompanyCruiser.prefab");
+            References.companyCruiserManualPrefab = CompanyCruiserBundle.LoadAsset<GameObject>("CompanyCruiserManual.prefab");
+            if (References.companyCruiserPrefab != null)
             {
-                if (!networkPrefabs.Contains(CompanyCruiserPrefab))
-                    networkPrefabs.Add(CompanyCruiserPrefab);
-                Logger.LogInfo("[AssetBundle] Successfully loaded prefab: CompanyCruiser");
+                if (!networkPrefabs.Contains(References.companyCruiserPrefab))
+                    networkPrefabs.Add(References.companyCruiserPrefab);
+                Logger.LogInfo("V55: [AssetBundle] Successfully loaded prefab: CompanyCruiser");
             }
             else
             {
-                Logger.LogError("[AssetBundle] Failed to load prefab: CompanyCruiser");
+                Logger.LogError("V55: [AssetBundle] Failed to load prefab: CompanyCruiser");
             }
 
-            if (CompanyCruiserManualPrefab != null)
+            if (References.companyCruiserManualPrefab != null)
             {
-                if (!networkPrefabs.Contains(CompanyCruiserManualPrefab))
-                    networkPrefabs.Add(CompanyCruiserManualPrefab);
-                Logger.LogInfo("[AssetBundle] Successfully loaded prefab: CompanyCruiserManual");
+                if (!networkPrefabs.Contains(References.companyCruiserManualPrefab))
+                    networkPrefabs.Add(References.companyCruiserManualPrefab);
+                Logger.LogInfo("V55: [AssetBundle] Successfully loaded prefab: CompanyCruiserManual");
             }
             else
             {
-                Logger.LogError("[AssetBundle] Failed to load prefab: CompanyCruiserManual");
+                Logger.LogError("V55: [AssetBundle] Failed to load prefab: CompanyCruiserManual");
             }
-
-            AssetBundle PlayerAnimationBundle = AssetBundle.LoadFromFile(Path.Combine(Path.GetDirectoryName(Info.Location), "playeranimationbundles"));
-            if (PlayerAnimationBundle == null)
-            {
-                Logger.LogError("[AssetBundle] Failed to load asset bundle: playeranimationbundles");
-                return;
-            }
-
-            References.truckPlayerAnimator = PlayerAnimationBundle.LoadAsset<RuntimeAnimatorController>("truckPlayerMetarig.controller");
-            if (References.truckPlayerAnimator != null)
-            {
-                Logger.LogInfo("[AssetBundle] Successfully loaded runtime controller: truckPlayerMetarig");
-            }
-            else
-            {
-                Logger.LogError("[AssetBundle] Failed to load runtime controller: truckPlayerMetarig");
-            }
-
-            VehicleControlsInstance = new VehicleControls();
-            UserConfig.InitConfig();
-
-            NetcodePatcher();
-            Patch();
-
-            Logger.LogInfo($"{MyPluginInfo.PLUGIN_GUID} v{MyPluginInfo.PLUGIN_VERSION} has loaded!");
         }
 
         internal static void Patch()
@@ -104,11 +78,9 @@ namespace v55Cruiser
 
             Harmony.PatchAll();
 
-            // todo: look into a more modular system for this
-            if (CompatibilityUtils.IsModPresent("voxx.LethalElementsPlugin"))
-            {
-                LethalElementsCompatibility.PatchAllElements(Harmony);
-            }
+            if (IsModPresent("voxx.LethalElementsPlugin")) LethalElementsCompatibility.PatchAllCompatibilityMethods(Harmony);
+            if (IsModPresent("NoteBoxz.LethalMin")) LethalMinCompatibility.PatchAllCompatibilityMethods(Harmony);
+            if (IsModPresent("ImmersiveVisor")) ImmersiveVisorCompatibility.PatchAllCompatibilityMethods(Harmony);
 
             Logger.LogDebug("Finished patching!");
         }
@@ -122,21 +94,9 @@ namespace v55Cruiser
             Logger.LogDebug("Finished unpatching!");
         }
 
-        private void NetcodePatcher()
+        internal static bool IsModPresent(string name)
         {
-            var types = Assembly.GetExecutingAssembly().GetTypes();
-            foreach (var type in types)
-            {
-                var methods = type.GetMethods(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
-                foreach (var method in methods)
-                {
-                    var attributes = method.GetCustomAttributes(typeof(RuntimeInitializeOnLoadMethodAttribute), false);
-                    if (attributes.Length > 0)
-                    {
-                        method.Invoke(null, null);
-                    }
-                }
-            }
+            return Chainloader.PluginInfos.ContainsKey(name);
         }
     }
 }

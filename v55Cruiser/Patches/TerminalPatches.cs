@@ -1,6 +1,4 @@
-using System.Linq;
 using HarmonyLib;
-using UnityEngine;
 using v55Cruiser.Utils;
 
 namespace v55Cruiser.Patches;
@@ -18,7 +16,7 @@ public static class TerminalPatches
         result.terminalOptions[0].result.itemCost = 400;
         __instance.buyableVehicles[0].creditsWorth = 400;
 
-        __instance.buyableVehicles[0].vehiclePrefab = Plugin.CompanyCruiserPrefab;
-        __instance.buyableVehicles[0].secondaryPrefab = Plugin.CompanyCruiserManualPrefab;
+        __instance.buyableVehicles[0].vehiclePrefab = References.companyCruiserPrefab;
+        __instance.buyableVehicles[0].secondaryPrefab = References.companyCruiserManualPrefab;
     }
 }

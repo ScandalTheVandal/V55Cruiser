@@ -4,62 +4,69 @@ using UnityEngine;
 namespace v55Cruiser.Utils;
 public static class VehicleUtils
 {
-    public static float lastCheckTime = 0f;
-    public static float cooldown = 0.25f;
-
-    // kind of unused
-    public static bool MeetsSpecialConditionsToCheck()
+    public static bool IsEnemyInTruck(EnemyAI enemyScript, v55VehicleController truckController)
     {
-        if (Time.realtimeSinceStartup - lastCheckTime < cooldown)
-            return false;
-
-        lastCheckTime = Time.realtimeSinceStartup;
-        return true;
-    }
-
-    public static bool IsEnemyInVehicle(EnemyAI enemyScript, v55VehicleController controller)
-    {
-        if ((controller.collisionTrigger.insideTruckNavMeshBounds.ClosestPoint(enemyScript.transform.position) == enemyScript.transform.position) ||
-            (controller.collisionTrigger.insideTruckNavMeshBounds.ClosestPoint(enemyScript.agent.destination) == enemyScript.agent.destination))
+        if ((truckController.collisionTrigger.insideTruckNavMeshBounds.ClosestPoint(enemyScript.transform.position) == enemyScript.transform.position) ||
+            (truckController.collisionTrigger.insideTruckNavMeshBounds.ClosestPoint(enemyScript.agent.destination) == enemyScript.agent.destination))
             return true;
         return false;
     }
 
-    public static bool IsPlayerInVehicleBounds()
+    public static bool IsPlayerInTruckBounds(v55VehicleController truckController)
     {
-        return PlayerUtils.isPlayerOnTruck;
+        return truckController.vehicleZone.playerInZone;
     }
 
-    public static bool IsPlayerSeatedInVehicle(v55VehicleController controller)
+    public static bool IsPlayerInTruckStorage(v55VehicleController truckController)
     {
-        return PlayerUtils.seatedInTruck;
+        return truckController.vehicleStorageZone.playerInZone;
     }
 
-    public static bool IsSeatedPlayerProtected(PlayerControllerB player, v55VehicleController controller)
+    public static bool IsPlayerSeatedInTruck()
     {
-        return false; // no protection lol
+        return PlayerUtils.isSeatedInTruck;
     }
 
-    public static bool IsPlayerProtectedByVehicle(PlayerControllerB player, v55VehicleController controller)
+    public static bool IsSeatedPlayerProtected(PlayerControllerB playerController, v55VehicleController truckController, bool velocityCheck = false, float velocityMagnitude = 0f)
     {
-        if (controller.carDestroyed)
-            return false;
+        float avgVel = truckController.averageVelocity.magnitude;
 
-        bool backDoorOpen = controller.liftGateOpen;
+        if (velocityCheck && avgVel > velocityMagnitude)
+            return true;
 
-        if (PlayerUtils.isPlayerInStorage && backDoorOpen)
-            return false;
-        else if (PlayerUtils.isPlayerOnTruck &&
-            !PlayerUtils.isPlayerInStorage)
+        if ((playerController == truckController.currentDriver) ||
+            (playerController == truckController.currentPassenger))
             return false;
 
         return true;
     }
 
-    public static bool IsPlayerNearTruck(PlayerControllerB player, v55VehicleController vehicle)
+    public static bool IsPlayerProtectedByTruck(PlayerControllerB playerController, v55VehicleController truckController, bool velocityCheck = false, float velocityMagnitude = 0f)
     {
-        Vector3 vehicleTransform = vehicle.mainRigidbody.position;
-        Vector3 playerTransform = player.transform.position;
+        if (truckController.carDestroyed)
+            return false;
+
+        float avgVel = truckController.averageVelocity.magnitude;
+
+        if (velocityCheck && avgVel > velocityMagnitude)
+            return true;
+
+        bool backDoorOpen = truckController.liftGateOpen;
+
+        if (IsPlayerInTruckStorage(truckController) && 
+            backDoorOpen)
+            return false;
+        else if (IsPlayerInTruckBounds(truckController) &&
+            !IsPlayerInTruckStorage(truckController))
+            return false;
+
+        return true;
+    }
+
+    public static bool IsPlayerNearTruck(PlayerControllerB playerController, v55VehicleController truckController)
+    {
+        Vector3 vehicleTransform = truckController.mainRigidbody.position;
+        Vector3 playerTransform = playerController.transform.position;
 
         if (Vector3.Distance(playerTransform, vehicleTransform) > 10f)
             return false;

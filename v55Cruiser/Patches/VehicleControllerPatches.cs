@@ -48,7 +48,6 @@ public static class VehicleControllerPatches
         if (__instance is not v55VehicleController vehicle)
             return true;
 
-        // need to investigate some stuff regarding this
         //vehicle.StartMagneting();
         return false;
     }
@@ -63,7 +62,7 @@ public static class VehicleControllerPatches
         if (__instance is not v55VehicleController vehicle)
             return true;
 
-        vehicle.CollectItemsInTruck();
+        //vehicle.CollectItemsInTruck();
         return false;
     }
 
@@ -128,7 +127,7 @@ public static class VehicleControllerPatches
 
     [HarmonyPatch(nameof(VehicleController.DealPermanentDamage))]
     [HarmonyPrefix]
-    static bool DealPermanentDamage_Prefix(VehicleController __instance, bool __runOriginal, int damageAmount, Vector3 damagePosition = default(Vector3))
+    static bool DealPermanentDamage_Prefix(VehicleController __instance, bool __runOriginal, int damageAmount, Vector3 damagePosition)
     {
         if (!__runOriginal)
             return false;

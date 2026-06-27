@@ -1,6 +1,6 @@
 ﻿using GameNetcodeStuff;
 using UnityEngine;
-using v55Cruiser.Patches;
+using UnityEngine.UIElements;
 
 public class v55VehicleCollisionTrigger : MonoBehaviour
 {
@@ -24,24 +24,18 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
 
         if (other.CompareTag("Player"))
         {
-            other.TryGetComponent<PlayerControllerB>(out var playerController);
-            if (playerController == null)
+            if (!other.TryGetComponent<PlayerControllerB>(out var playerController))
                 return;
 
-            // Prevent hitting players standing on/in the cruiser
+            if (Time.realtimeSinceStartup - timeSinceHittingPlayer < 0.25f)
+                return;
+
+            // prevent hitting players sitting in the truck
             Transform physicsTransform = mainScript.physicsRegion.physicsTransform;
-            if (playerController.physicsParent == physicsTransform || playerController.overridePhysicsParent == physicsTransform)
+            if (playerController.overridePhysicsParent == physicsTransform)
+            {
                 return;
-
-            var data = PlayerControllerBPatches.GetData(playerController);
-            if (data == null ||
-                data.isPlayerOnTruck ||
-                data.isPlayerInStorage)
-                return;
-
-            if ((mainScript.localPlayerInControl || mainScript.localPlayerInPassengerSeat) || 
-                Time.realtimeSinceStartup - timeSinceHittingPlayer < 0.25f)
-                return;
+            }
 
             float velocityMagnitude = mainScript.averageVelocity.magnitude;
             if (velocityMagnitude < 2f)
@@ -65,16 +59,17 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             }
 
             timeSinceHittingPlayer = Time.realtimeSinceStartup;
-            Vector3 impactForce = Vector3.ClampMagnitude(mainScript.averageVelocity, 55f);
+            Vector3 impactForce = Vector3.ClampMagnitude(mainScript.averageVelocity, 40f);
 
             if (playerController == GameNetworkManager.Instance.localPlayerController)
             {
                 if (physicsTransform == GameNetworkManager.Instance.localPlayerController.physicsParent)
+                {
                     return;
-
+                }
                 if (velocityMagnitude > 20f)
                 {
-                    GameNetworkManager.Instance.localPlayerController.KillPlayer(impactForce, spawnBody: true, CauseOfDeath.Crushing);
+                    GameNetworkManager.Instance.localPlayerController.KillPlayer(impactForce, spawnBody: true, CauseOfDeath.Crushing, 0, default, false);
                 }
                 else
                 {
@@ -105,8 +100,10 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             if (!other.gameObject.CompareTag("Enemy"))
                 return;
 
-            other.TryGetComponent<EnemyAICollisionDetect>(out var enemyAIcollision);
-            if (enemyAIcollision == null)
+            if (Time.realtimeSinceStartup - timeSinceHittingEnemy < 0.25f)
+                return;
+
+            if (!other.TryGetComponent<EnemyAICollisionDetect>(out var enemyAIcollision))
                 return;
 
             if (enemyAIcollision.mainScript == null)
@@ -115,31 +112,26 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             if (enemyAIcollision.mainScript.isEnemyDead)
                 return;
 
-            // Prevent hitting and bouncing off unkillable small entities (e.g., bees, ghost girl, earth leviathan)
-            if (!enemyAIcollision.mainScript.enemyType.canDie && enemyAIcollision.mainScript.enemyType.SizeLimit == NavSizeLimit.NoLimit) return;
+            if (enemyAIcollision.mainScript is SandWormAI)
+            {
+                timeSinceHittingEnemy = Time.realtimeSinceStartup;
+                mainScript.mainRigidbody.AddExplosionForce(mainScript.mainRigidbody.mass * 100f, mainScript.transform.position + mainScript.transform.forward + Vector3.up * 1.5f, 12f, 3f, ForceMode.Impulse);
+                return;
+            }
 
-            // Cooldown
-            if (Time.realtimeSinceStartup - timeSinceHittingEnemy < 0.25f)
+            // prevent tulip-snakes bouncing the vehicle if actively clinging to a player
+            if (enemyAIcollision.mainScript is FlowerSnakeEnemy flowerSnake && flowerSnake.clingingToPlayer)
                 return;
 
-            // Prevent hits if the cruiser is not running and it's not an angry dog
-            MouthDogAI? dog = enemyAIcollision.mainScript as MouthDogAI;
-            bool isAngryDog = dog != null && dog && dog.suspicionLevel > 8;
-            if (!isAngryDog && !mainScript.ignitionStarted)
+            if (Vector3.Angle(mainScript.averageVelocity, enemyAIcollision.mainScript.transform.position - transform.position) > 130f)
                 return;
 
-            // Prevent hitting entities inside the truck
-            Behaviour? navMeshOwner = enemyAIcollision.mainScript.agent.navMeshOwner as Behaviour;
-            if (navMeshOwner != null && navMeshOwner.transform.IsChildOf(mainScript.transform))
-                return;
-
-            if (Vector3.Angle(mainScript.averageVelocity, enemyAIcollision.mainScript.transform.position - base.transform.position) > 130f)
-                return;
-
-            if (mainScript.liftGateOpen && mainScript.averageVelocity.magnitude < 2f &&
-                (insideTruckNavMeshBounds.ClosestPoint(enemyAIcollision.mainScript.transform.position) == enemyAIcollision.mainScript.transform.position ||
+            if (mainScript.liftGateOpen && 
+                (insideTruckNavMeshBounds.ClosestPoint(enemyAIcollision.mainScript.transform.position) == enemyAIcollision.mainScript.transform.position || 
                 insideTruckNavMeshBounds.ClosestPoint(enemyAIcollision.mainScript.agent.destination) == enemyAIcollision.mainScript.agent.destination))
+            {
                 return;
+            }
 
             bool dealDamage = false;
             for (int i = 0; i < enemiesLastHit.Length; i++)
@@ -156,17 +148,22 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             timeSinceHittingEnemy = Time.realtimeSinceStartup;
             Vector3 position = enemyAIcollision.transform.position;
             bool enemyDamageByCar = false;
-            switch (enemyAIcollision.mainScript.enemyType.EnemySize)
+
+
+            if (!ReactToInvidiualEnemies(enemyAIcollision, out enemyDamageByCar, position, dealDamage))
             {
-                case EnemySize.Tiny:
-                    enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 1f, enemyAIcollision.mainScript, dealDamage);
-                    break;
-                case EnemySize.Giant:
-                    enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 3f, enemyAIcollision.mainScript, dealDamage);
-                    break;
-                case EnemySize.Medium:
-                    enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 2f, enemyAIcollision.mainScript, dealDamage);
-                    break;
+                switch (enemyAIcollision.mainScript.enemyType.SizeLimit)
+                {
+                    case NavSizeLimit.NoLimit:
+                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 1f, enemyAIcollision.mainScript, dealDamage);
+                        break;
+                    case NavSizeLimit.MediumSpaces:
+                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 3f, enemyAIcollision.mainScript, dealDamage);
+                        break;
+                    case NavSizeLimit.SmallSpaces:
+                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 2f, enemyAIcollision.mainScript, dealDamage);
+                        break;
+                }
             }
 
             if (enemyDamageByCar)
@@ -184,5 +181,24 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
                 }
             }
         }
+    }
+
+    // Treat foxes as 'Medium'
+    // Treat baboons and masked as 'Small'
+    public bool ReactToInvidiualEnemies(EnemyAICollisionDetect enemyAIcollision, out bool enemyDamageByCar, Vector3 enemyPos, bool dealDamage)
+    {
+        enemyDamageByCar = false;
+        if (enemyAIcollision.mainScript is BushWolfEnemy)
+        {
+            enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, enemyPos, mainScript.averageVelocity, CarObstacleType.Enemy, 3f, enemyAIcollision.mainScript, dealDamage);
+            return true;
+        }
+        if (enemyAIcollision.mainScript is BaboonBirdAI ||
+            enemyAIcollision.mainScript is MaskedPlayerEnemy)
+        {
+            enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, enemyPos, mainScript.averageVelocity, CarObstacleType.Enemy, 2f, enemyAIcollision.mainScript, dealDamage);
+            return true;
+        }
+        return false;
     }
 }

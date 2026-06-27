@@ -1,6 +1,4 @@
-﻿using GameNetcodeStuff;
-using UnityEngine;
-using UnityEngine.Audio;
+﻿using UnityEngine;
 
 namespace v55Cruiser.Utils;
 
@@ -10,9 +8,7 @@ public static class References
     internal static ItemDropship itemShip = null!;
     internal static v55VehicleController truckController = null!;
 
-    // fixes
-    internal static PlayerControllerB lastDriver = null!;
-
-    // custom animations
-    internal static RuntimeAnimatorController truckPlayerAnimator = null!;
+    // misc
+    internal static GameObject companyCruiserPrefab = null!;
+    internal static GameObject companyCruiserManualPrefab = null!;
 }

@@ -11,12 +11,15 @@ public static class ElevatorAnimationEventsPatches
     [HarmonyPrefix]
     static void ElevatorFullyRunning_Prefix()
     {
-        if (References.truckController == null) return;
-        if (!References.truckController.magnetedToShip) return;
+        v55VehicleController controller = References.truckController;
+        if (controller == null) 
+            return;
 
-        // save players who are on the magneted truck from being abandoned
+        // do not save players who are on the magneted truck from being abandoned
         PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
-        if (PlayerUtils.seatedInTruck || PlayerUtils.isPlayerOnTruck)
-            localPlayer.isInElevator = true;
+        if (PlayerUtils.isSeatedInTruck ||
+            VehicleUtils.IsPlayerInTruckBounds(controller) ||
+            VehicleUtils.IsPlayerInTruckStorage(controller))
+            localPlayer.isInElevator = false;
     }
 }

@@ -2,7 +2,7 @@ using GameNetcodeStuff;
 using HarmonyLib;
 using System.Collections.Generic;
 using UnityEngine;
-using v55Cruiser.Behaviour;
+using v55Cruiser.Networking;
 using v55Cruiser.Utils;
 
 
@@ -11,21 +11,27 @@ namespace v55Cruiser.Patches;
 [HarmonyPatch(typeof(PlayerControllerB))]
 public static class PlayerControllerBPatches
 {
-    public static float checkInterval;
-
     public class PlayerControllerBData
     {
-        public float syncLookInputInterval;
-        public float vehicleCameraHorizontal;
-        public float lastVehicleCameraHorizontal;
-        public int currentCarAnimation = -1;
+        public float syncedCameraHorizontal;
 
-        public bool isPlayerOnTruck;
-        public bool isPlayerInStorage;
+        public bool playerSeatedInTruck;
+        public bool playerRidingOnTruck;
+        public bool playerRidingInTruckStorage;
     }
 
     public static Dictionary<PlayerControllerB, PlayerControllerBData> playerData = new();
+    private static float checkInterval;
 
+    // optimisation
+    private static Quaternion armsMetarigParentRot = Quaternion.Euler(90f, 0f, 0f);
+    private static Quaternion armsMetarigRot = Quaternion.Euler(-90f, 0f, 0f);
+
+    private static Vector3 localArmsPos = new Vector3(0, -0.008f, -0.43f);
+    private static Quaternion localArmsRot = Quaternion.Euler(84.78056f, 0f, 0f);
+
+    private static Vector3 playerBodyPos = Vector3.zero;
+    private static Quaternion playerBodyRot = Quaternion.Euler(-90, 0, 0);
 
     private static void RemoveStalePlayerData()
     {
@@ -44,16 +50,6 @@ public static class PlayerControllerBPatches
         }
     }
 
-    public static PlayerControllerBData GetData(PlayerControllerB player)
-    {
-        if (!playerData.TryGetValue(player, out var data))
-        {
-            data = new PlayerControllerBData();
-            playerData[player] = data;
-        }
-        return data;
-    }
-
     [HarmonyPatch(nameof(PlayerControllerB.Awake))]
     [HarmonyPostfix]
     static void Awake_Postfix(PlayerControllerB __instance)
@@ -61,7 +57,8 @@ public static class PlayerControllerBPatches
         RemoveStalePlayerData();
         if (!playerData.ContainsKey(__instance))
         {
-            playerData.Add(__instance, new PlayerControllerBData());
+            PlayerControllerBData thisData = new();
+            playerData.Add(__instance, thisData);
         }
     }
 
@@ -76,53 +73,86 @@ public static class PlayerControllerBPatches
         return true;
     }
 
-    /// <summary>
-    ///  Available from CruiserImproved, licensed under MIT License.
-    ///  Source: https://github.com/digger1213/CruiserImproved/blob/main/source/Patches/PlayerController.cs
-    /// </summary>
+    [HarmonyPatch(nameof(PlayerControllerB.SetItemInElevator))]
+    [HarmonyPrefix]
+    static bool SetItemInElevator_Prefix(PlayerControllerB __instance, bool droppedInShipRoom, bool droppedInElevator, GrabbableObject gObject)
+    {
+        if (References.truckController == null)
+            return true;
+        v55VehicleController vehicle = References.truckController;
+
+        if (gObject.transform.parent == vehicle.transform)
+            return false;
+        return true;
+    }
+
     [HarmonyPatch(nameof(PlayerControllerB.Update))]
     [HarmonyPostfix]
     public static void Update_Postfix(PlayerControllerB __instance)
     {
-        if (__instance == null || 
-            __instance.isPlayerDead || 
-            !__instance.isPlayerControlled)
-            return;
-
-        if (__instance != GameNetworkManager.Instance.localPlayerController)
-            return;
-
-        if (References.truckController == null)
-            return;
-        v55VehicleController controller = References.truckController;
-
-        bool validTruck = __instance.inVehicleAnimation && __instance.currentTriggerInAnimationWith && __instance.currentTriggerInAnimationWith.overridePlayerParent;
-        if (validTruck && __instance.currentTriggerInAnimationWith.overridePlayerParent == controller.transform)
+        if (__instance == null ||
+            !__instance.isPlayerControlled ||
+            __instance != GameNetworkManager.Instance.localPlayerController)
         {
-            PlayerUtils.seatedInTruck = true;
-            PlayerUtils.isPlayerOnTruck = true;
-            PlayerUtils.isPlayerInStorage = false;
+            return;
         }
-        else if (!__instance.inVehicleAnimation && PlayerUtils.seatedInTruck == true)
-            PlayerUtils.seatedInTruck = false;
+        SyncPlayerLookInput(__instance);
+    }
 
-        if (checkInterval <= 0.3f)
+    [HarmonyPatch(nameof(PlayerControllerB.LateUpdate))]
+    [HarmonyPostfix]
+    public static void LateUpdate_Zone_Postfix(PlayerControllerB __instance)
+    {
+        if (__instance == null || 
+            !__instance.isPlayerControlled ||
+            __instance != GameNetworkManager.Instance.localPlayerController)
+        {
+            return;
+        }
+        SetPlayerVehicleZone(__instance);
+    }
+
+
+    private static void SetPlayerVehicleZone(PlayerControllerB playerController)
+    {
+        v55VehicleController truckController = References.truckController;
+
+        var localPlayerData = playerData[playerController];
+        bool sittingInTruck = PlayerUtils.isSeatedInTruck;
+        bool ridingInTruckStorage = truckController?.vehicleStorageZone.playerInZone ?? false;
+        bool ridingOnTruck = truckController?.vehicleZone.playerInZone ?? false;
+
+        if (localPlayerData.playerSeatedInTruck == sittingInTruck &&
+            localPlayerData.playerRidingInTruckStorage == ridingInTruckStorage &&
+            localPlayerData.playerRidingOnTruck == ridingOnTruck)
+        {
+            return;
+        }
+
+        localPlayerData.playerSeatedInTruck = sittingInTruck;
+        localPlayerData.playerRidingInTruckStorage = ridingInTruckStorage;
+        localPlayerData.playerRidingOnTruck = ridingOnTruck;
+        V55Networker.Instance?.SyncPlayerZoneRpc(playerController.NetworkObject,
+                                                 sittingInTruck,
+                                                 ridingInTruckStorage,
+                                                 ridingOnTruck);
+    }
+
+    private static void SyncPlayerLookInput(PlayerControllerB playerController)
+    {
+        if (checkInterval >= 0.15f)
+        {
+            if (playerData[playerController].syncedCameraHorizontal != playerController.ladderCameraHorizontal)
+            {
+                checkInterval = 0f;
+                playerData[playerController].syncedCameraHorizontal = playerController.ladderCameraHorizontal;
+                V55Networker.Instance?.SyncPlayerLookInputRpc(playerController.NetworkObject, playerController.ladderCameraHorizontal);
+                return;
+            }
+        }
+        else
         {
             checkInterval += Time.deltaTime;
-            return;
-        }
-        checkInterval = 0f;
-        var data = GetData(__instance);
-        if (data.isPlayerOnTruck != PlayerUtils.isPlayerOnTruck ||
-            data.isPlayerInStorage != PlayerUtils.isPlayerInStorage)
-        {
-            data.isPlayerOnTruck = PlayerUtils.isPlayerOnTruck;
-            data.isPlayerInStorage = PlayerUtils.isPlayerInStorage;
-
-            controller.SyncPlayerZoneRpc(
-                (int)__instance.playerClientId,
-                PlayerUtils.isPlayerOnTruck,
-                PlayerUtils.isPlayerInStorage);
         }
     }
 
@@ -139,22 +169,25 @@ public static class PlayerControllerBPatches
         if (__instance == null ||
             __instance.isPlayerDead ||
             !__instance.isPlayerControlled)
-            return;
-
-        if (References.truckController == null)
-            return;
-        v55VehicleController controller = References.truckController;
-
-        bool validTruck = __instance.inVehicleAnimation && __instance.currentTriggerInAnimationWith && __instance.currentTriggerInAnimationWith.overridePlayerParent;
-        if (validTruck && __instance.currentTriggerInAnimationWith.overridePlayerParent == controller.transform)
         {
-            // fix players first-person arms orientation after interacting with certain objects (i.e. terminal, start round lever) causing visual issues such as the ignition-key animation being off
-            __instance.playerModelArmsMetarig.parent.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            __instance.playerModelArmsMetarig.localRotation = Quaternion.Euler(-90f, 0f, 0f);
-            __instance.localArmsTransform.localPosition = new Vector3(0, -0.008f, -0.43f);
-            __instance.localArmsTransform.localRotation = Quaternion.Euler(84.78056f, 0f, 0f);
-            __instance.playerBodyAnimator.transform.localPosition = controller.playerPositionOffset;
-            __instance.playerBodyAnimator.transform.localRotation = Quaternion.Euler(-90, 0, 0);
+            return;
         }
+
+        if (!__instance.inVehicleAnimation)
+        {
+            return;
+        }
+
+        if (!playerData[__instance].playerSeatedInTruck)
+        {
+            return;
+        }
+
+        __instance.playerModelArmsMetarig.parent.transform.localRotation = armsMetarigParentRot;
+        __instance.playerModelArmsMetarig.localRotation = armsMetarigRot;
+        __instance.localArmsTransform.localPosition = localArmsPos;
+        __instance.localArmsTransform.localRotation = localArmsRot;
+        __instance.playerBodyAnimator.transform.localPosition = playerBodyPos;
+        __instance.playerBodyAnimator.transform.localRotation = playerBodyRot;
     }
 }
