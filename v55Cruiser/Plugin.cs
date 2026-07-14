@@ -16,6 +16,7 @@ namespace v55Cruiser
     [BepInDependency("voxx.LethalElementsPlugin", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("NoteBoxz.LethalMin", BepInDependency.DependencyFlags.SoftDependency)]
     [BepInDependency("ImmersiveVisor", BepInDependency.DependencyFlags.SoftDependency)]
+    [BepInDependency("com.seeya.firstpersonview", BepInDependency.DependencyFlags.SoftDependency)]
     public class Plugin : BaseUnityPlugin
     {
         public static Plugin Instance { get; private set; } = null!;
@@ -78,9 +79,10 @@ namespace v55Cruiser
 
             Harmony.PatchAll();
 
-            if (IsModPresent("voxx.LethalElementsPlugin")) LethalElementsCompatibility.PatchAllCompatibilityMethods(Harmony);
-            if (IsModPresent("NoteBoxz.LethalMin")) LethalMinCompatibility.PatchAllCompatibilityMethods(Harmony);
-            if (IsModPresent("ImmersiveVisor")) ImmersiveVisorCompatibility.PatchAllCompatibilityMethods(Harmony);
+            if (IsModPresent("voxx.LethalElementsPlugin")) LethalElementsCompatibility.PatchAllMethods(Harmony);
+            if (IsModPresent("NoteBoxz.LethalMin")) LethalMinCompatibility.PatchAllMethods(Harmony);
+            if (IsModPresent("ImmersiveVisor")) ImmersiveVisorCompatibility.PatchAllMethods(Harmony);
+            if (IsModPresent("com.seeya.firstpersonview")) FirstPersonViewCompatibility.PatchAllMethods(Harmony);
 
             Logger.LogDebug("Finished patching!");
         }

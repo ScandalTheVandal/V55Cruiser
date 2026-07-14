@@ -6,8 +6,6 @@ using VoxxWeatherPlugin.Patches;
 using System.Runtime.CompilerServices;
 using VoxxWeatherPlugin.Weathers;
 using VoxxWeatherPlugin.Utils;
-using v55Cruiser.Patches;
-using UnityEngine.InputSystem.XR;
 
 namespace v55Cruiser.Compatibility;
 
@@ -22,14 +20,14 @@ namespace v55Cruiser.Compatibility;
 public static class LethalElementsCompatibility
 {
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void PatchAllCompatibilityMethods(Harmony harmony)
+    public static void PatchAllMethods(Harmony harmony)
     {
-        ApplyElementsPatch(harmony);
+        ApplyPatch(harmony);
     }
 
     [HarmonyPrefix]
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void ApplyElementsPatch(Harmony harmony)
+    public static void ApplyPatch(Harmony harmony)
     {
         var originalHeatwaveStopMethod = AccessTools.Method(typeof(HeatwavePatches), nameof(HeatwavePatches.CheckConditionsForHeatingStop));
         var originalHeatwavePauseMethod = AccessTools.Method(typeof(HeatwavePatches), nameof(HeatwavePatches.CheckConditionsForHeatingPause));

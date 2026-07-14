@@ -24,13 +24,18 @@ public class v55PhysicsRegion : PlayerPhysicsRegion
     public new void OnDestroy()
     {
         disablePhysicsRegion = true;
-        TryRemovePhysicsRegionFromList();
+        if (StartOfRound.Instance.CurrentPlayerPhysicsRegions.Contains(this))
+        {
+            StartOfRound.Instance.CurrentPlayerPhysicsRegions.Remove(this);
+        }
         for (int i = 0; i < StartOfRound.Instance?.allPlayerScripts.Length; i++)
         {
-            if (StartOfRound.Instance.allPlayerScripts[i].transform.parent == physicsTransform)
+            PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[i];
+            if (playerController.transform.parent == physicsTransform)
             {
-                StartOfRound.Instance.allPlayerScripts[i].transform.SetParent(null);
-                Debug.Log($"V55: Player {i} setting parent null since physics region was destroyed");
+                Transform playerTransform = playerController.isInElevator ? playerController.playersManager.elevatorTransform : playerController.playersManager.playersContainer;
+                playerController.transform.SetParent(playerTransform);
+                Debug.Log($"V55: Player {i} setting parent since physics region was destroyed");
             }
         }
         if (!allowDroppingItems || itemDropCollider == null) return;
@@ -107,9 +112,6 @@ public class v55PhysicsRegion : PlayerPhysicsRegion
 
     public void SetPlayerZoneActive()
     {
-        if (VehicleUtils.IsPlayerSeatedInTruck())
-            return;
-
         checkZoneInterval = 0f;
         removePlayerFromZoneNextFrame = false;
         playerInZone = true;
@@ -147,27 +149,25 @@ public class v55PhysicsRegion : PlayerPhysicsRegion
     {
         if (disablePhysicsRegion)
         {
+            physicsCollider.enabled = false;
             return;
         }
         isRegionActive = IsPhysicsRegionActive();
         UpdatePhysicsRegion();
         SetPhysicsRegionAndZone(ref checkInterval, ref removePlayerNextFrame, ref hasLocalPlayer, true);
-        if (VehicleUtils.IsPlayerSeatedInTruck())
-        {
-            playerInZone = true;
-            removePlayerFromZoneNextFrame = false;
-            checkZoneInterval = 0f;
-        }
-        else
-        {
-            SetPhysicsRegionAndZone(ref checkZoneInterval, ref removePlayerFromZoneNextFrame, ref playerInZone);
-        }
+        //SetPhysicsRegionAndZone(ref checkZoneInterval, ref removePlayerFromZoneNextFrame, ref playerInZone);
     }
 
     public void UpdatePhysicsRegion()
     {
         if (!playerInsideThisFrame)
         {
+            if (playerInZone)
+            {
+                checkZoneInterval = 0f;
+                removePlayerFromZoneNextFrame = false;
+                playerInZone = false;
+            }
             return;
         }
         if (playerInsideThisFrame)

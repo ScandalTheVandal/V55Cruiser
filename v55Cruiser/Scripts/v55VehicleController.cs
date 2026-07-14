@@ -173,6 +173,8 @@ public class v55VehicleController : VehicleController
     public Transform ignitionKeyPosition = null!;
     private Transform leftHandServerItemTarget = null!;
 
+    public MeshRenderer frontLeftDoorMeshLOD = null!;
+    public MeshRenderer frontRightDoorMeshLOD = null!;
     public MeshRenderer frontLeftDoorMesh = null!;
     public MeshRenderer frontRightDoorMesh = null!;
     public MeshRenderer steeringWheelMesh = null!;
@@ -188,10 +190,10 @@ public class v55VehicleController : VehicleController
     private Vector3 LHD_Rot_Local = new Vector3(-3.446f, 3.193f, 172.642f);
     private Vector3 LHD_Rot_Server = new Vector3(-191.643f, 174.051f, -7.768005f);
 
-    private Vector3 RHD_Pos_Local = new Vector3(-0.01708288f, 0.1665026f, -0.1157278f);
-    private Vector3 RHD_Pos_Server = new Vector3(-0.0194879f, 0.1340649f, -0.1071167f);
-    private Vector3 RHD_Rot_Local = new Vector3(21.592f, -11.63f, -158.578f);
-    private Vector3 RHD_Rot_Server = new Vector3(-9.158f, -18.16f, -162.445f);
+    private Vector3 RHD_Pos_Local = new Vector3(-0.02776055f, 0.1709576f, -0.1114562f);
+    private Vector3 RHD_Pos_Server = new Vector3(-0.02314448f, 0.1360526f, -0.108739f);
+    private Vector3 RHD_Rot_Local = new Vector3(22.679f, -8.263f, -158.794f);
+    private Vector3 RHD_Rot_Server = new Vector3(9.026f, -18.147f, -162.389f);
     // ignition end
 
     public bool isCabLightOn;
@@ -887,6 +889,17 @@ public class v55VehicleController : VehicleController
     }
 
 
+    [Rpc(SendTo.Everyone, RequireOwnership = false)]
+    public void CancelSetPlayerInSeatRpc(int playerId)
+    {
+        PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[playerId];
+        if (GameNetworkManager.Instance.localPlayerController != playerController)
+            return;
+        GlobalUtilities.CancelVehicleSeatInteraction();
+    }
+
+
+
     // --- DRIVER OCCUPANT METHODS ---
     public void SetDriverInCar()
     {
@@ -902,6 +915,7 @@ public class v55VehicleController : VehicleController
             !playerController.isPlayerControlled ||
             currentDriver != null)
         {
+            CancelSetPlayerInSeatRpc(playerId);
             return;
         }
         currentDriver = playerController;
@@ -1047,6 +1061,7 @@ public class v55VehicleController : VehicleController
             !playerController.isPlayerControlled ||
             currentPassenger != null)
         {
+            CancelSetPlayerInSeatRpc(playerId);
             return;
         }
         currentPassenger = playerController;
@@ -1697,6 +1712,21 @@ public class v55VehicleController : VehicleController
     {
         RemoveCarRainCollision();
         DisableControl();
+        vehicleZone.disablePhysicsRegion = true;
+        if (StartOfRound.Instance.CurrentPlayerPhysicsRegions.Contains(vehicleZone))
+        {
+            StartOfRound.Instance.CurrentPlayerPhysicsRegions.Remove(vehicleZone);
+        }
+        for (int i = 0; i < StartOfRound.Instance.allPlayerScripts.Length; i++)
+        {
+            PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[i];
+            if (playerController.transform.parent == vehicleZone.physicsTransform)
+            {
+                Transform playerTransform = playerController.isInElevator ? playerController.playersManager.elevatorTransform : playerController.playersManager.playersContainer;
+                playerController.transform.SetParent(playerTransform);
+                Plugin.Logger.LogWarning($"V55: Player {i} setting parent since vehicle was disabled");
+            }
+        }
         if (localPlayerInControl || localPlayerInPassengerSeat)
         {
             GameNetworkManager.Instance.localPlayerController.CancelSpecialTriggerAnimations();
@@ -1716,11 +1746,6 @@ public class v55VehicleController : VehicleController
             {
                 componentsInChildren[i].FallToGround(false, false, default(Vector3));
             }
-        }
-        physicsRegion.disablePhysicsRegion = true;
-        if (StartOfRound.Instance.CurrentPlayerPhysicsRegions.Contains(physicsRegion))
-        {
-            StartOfRound.Instance.CurrentPlayerPhysicsRegions.Remove(physicsRegion);
         }
         PlayerUtils.isSeatedInTruck = false;
         References.truckController = null!;
@@ -1745,10 +1770,21 @@ public class v55VehicleController : VehicleController
         if (NetworkObject != null && !NetworkObject.IsSpawned)
         {
             RemoveCarRainCollision();
-            physicsRegion.disablePhysicsRegion = true;
-            if (StartOfRound.Instance.CurrentPlayerPhysicsRegions.Contains(physicsRegion))
-                StartOfRound.Instance.CurrentPlayerPhysicsRegions.Remove(physicsRegion);
-
+            vehicleZone.disablePhysicsRegion = true;
+            if (StartOfRound.Instance.CurrentPlayerPhysicsRegions.Contains(vehicleZone))
+            {
+                StartOfRound.Instance.CurrentPlayerPhysicsRegions.Remove(vehicleZone);
+            }
+            for (int i = 0; i < StartOfRound.Instance.allPlayerScripts.Length; i++)
+            {
+                PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[i];
+                if (playerController.transform.parent == vehicleZone.physicsTransform)
+                {
+                    Transform playerTransform = playerController.isInElevator ? playerController.playersManager.elevatorTransform : playerController.playersManager.playersContainer;
+                    playerController.transform.SetParent(playerTransform);
+                    Plugin.Logger.LogWarning($"V55: Player {i} setting parent since vehicle was removed");
+                }
+            }
             if (localPlayerInControl || localPlayerInPassengerSeat)
                 GameNetworkManager.Instance.localPlayerController.CancelSpecialTriggerAnimations();
 
@@ -2410,7 +2446,7 @@ public class v55VehicleController : VehicleController
 
 
     // what a mess
-    public void SetCarKeyEffects()
+    public void SetCarKeyEffects(bool localUseBodyHands = false)
     {
         if (ignitionAnimator.enabled != !inBetaMode)
             ignitionAnimator.enabled = !inBetaMode;
@@ -2453,7 +2489,8 @@ public class v55VehicleController : VehicleController
                     keyObject.enabled = true;
 
                 Transform keyParent;
-                if (localPlayerInControl)
+                bool useLocalHands = localPlayerInControl && !localUseBodyHands;
+                if (useLocalHands)
                 {
                     keyParent = currentDriver.localItemHolder;
                 }
@@ -2467,7 +2504,7 @@ public class v55VehicleController : VehicleController
                 carKeyInHand.transform.localScale = Vector3.one;
 
                 // -179.855f
-                if (localPlayerInControl) carKeyInHand.transform.SetLocalPositionAndRotation(new(-0.002f, 0.036f, -0.042f), Quaternion.Euler(-3.616f, -2.302f, 0.145f));
+                if (useLocalHands) carKeyInHand.transform.SetLocalPositionAndRotation(new(-0.002f, 0.036f, -0.042f), Quaternion.Euler(-3.616f, -2.302f, 0.145f));
                 else carKeyInHand.transform.SetLocalPositionAndRotation(new(-0.04170258f, 6.530248e-05f, -0.03752365f), Quaternion.Euler(13.794f, -3.466f, -20.947f));
 
                 keyObject.transform.position = carKeyInHand.transform.position;
@@ -2521,23 +2558,24 @@ public class v55VehicleController : VehicleController
             Transform keyParent;
             Vector3 posOffset, rotOffset;
 
+            bool useLocalHands = localPlayerInControl && !localUseBodyHands;
             if (!isInteriorRHD)
             {
-                keyParent = localPlayerInControl
+                keyParent = useLocalHands
                     ? currentDriver.localItemHolder.parent
                     : currentDriver.serverItemHolder.parent;
 
-                posOffset = localPlayerInControl ? LHD_Pos_Local : LHD_Pos_Server;
-                rotOffset = localPlayerInControl ? LHD_Rot_Local : LHD_Rot_Server;
+                posOffset = useLocalHands ? LHD_Pos_Local : LHD_Pos_Server;
+                rotOffset = useLocalHands ? LHD_Rot_Local : LHD_Rot_Server;
             }
             else
             {
-                keyParent = localPlayerInControl
+                keyParent = useLocalHands
                     ? currentDriver.leftHandItemTarget.transform
                     : leftHandServerItemTarget;
 
-                posOffset = localPlayerInControl ? RHD_Pos_Local : RHD_Pos_Server;
-                rotOffset = localPlayerInControl ? RHD_Rot_Local : RHD_Rot_Server;
+                posOffset = useLocalHands ? RHD_Pos_Local : RHD_Pos_Server;
+                rotOffset = useLocalHands ? RHD_Rot_Local : RHD_Rot_Server;
             }
 
             if (carKeyInHand.transform.parent != keyParent)
@@ -2883,7 +2921,7 @@ public class v55VehicleController : VehicleController
                         vehicleStress += 1.2f;
                         lastStressType += "; Accelerating while in park";
                     }
-                    else if (!allWheelsAirborne && Mathf.Abs(wheelRPM) > 150f)
+                    else if (!magnetedToShip && !allWheelsAirborne && Mathf.Abs(wheelRPM) > 150f)
                     {
                         vehicleStress += Mathf.Clamp((Mathf.Abs(wheelRPM) - 100f) / 350f, 0f, 1.3f);
                         lastStressType += "; In park while at high speed";
@@ -3553,7 +3591,7 @@ public class v55VehicleController : VehicleController
 
     public new void SetInternalStress(float carStressIncrease = 0f)
     {
-        if (!IsOwner || magnetedToShip || carDestroyed)
+        if (!IsOwner || carDestroyed)
         {
             return;
         }
@@ -3574,7 +3612,7 @@ public class v55VehicleController : VehicleController
 
     public new void DealPermanentDamage(int damageAmount, Vector3 damagePosition = default(Vector3))
     {
-        if (!IsOwner || magnetedToShip || carDestroyed)
+        if (!IsOwner || (magnetedToShip && !(drivePedalPressed && gear == CarGearShift.Park)) || carDestroyed)
         {
             return;
         }
@@ -3692,6 +3730,8 @@ public class v55VehicleController : VehicleController
 
     private void SetDestroyedMaterials()
     {
+        frontLeftDoorMeshLOD.material = destroyedTruckMaterial;
+        frontRightDoorMeshLOD.material = destroyedTruckMaterial;
         frontLeftDoorMesh.material = destroyedTruckMaterial;
         frontRightDoorMesh.material = destroyedTruckMaterial;
         steeringWheelMesh.material = destroyedTruckMaterial;

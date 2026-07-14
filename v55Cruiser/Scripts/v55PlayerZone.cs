@@ -77,6 +77,7 @@ public class v55PlayerZone : MonoBehaviour
     {
         if (disableZone)
         {
+            physicsCollider.enabled = false;
             return;
         }
         if (VehicleUtils.IsPlayerSeatedInTruck())

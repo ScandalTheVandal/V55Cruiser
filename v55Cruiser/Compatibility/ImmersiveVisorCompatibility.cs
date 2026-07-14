@@ -16,14 +16,14 @@ namespace v55Cruiser.Compatibility;
 public static class ImmersiveVisorCompatibility
 {
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void PatchAllCompatibilityMethods(Harmony harmony)
+    public static void PatchAllMethods(Harmony harmony)
     {
-        ApplyVisorPatch(harmony);
+        ApplyPatch(harmony);
     }
 
     [HarmonyPrefix]
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void ApplyVisorPatch(Harmony harmony)
+    public static void ApplyPatch(Harmony harmony)
     {
         var linecastMethod = AccessTools.Method(typeof(VisorRainState), nameof(VisorRainState.LineCastForCeiling));
         var prefixLinecastMethod = AccessTools.Method(typeof(ImmersiveVisorCompatibility), nameof(LineCastForCeiling_Prefix));

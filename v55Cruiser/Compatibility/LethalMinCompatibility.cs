@@ -17,14 +17,14 @@ namespace v55Cruiser.Compatibility;
 public static class LethalMinCompatibility
 {
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void PatchAllCompatibilityMethods(Harmony harmony)
+    public static void PatchAllMethods(Harmony harmony)
     {
-        ApplyPikminPatch(harmony);
+        ApplyPatch(harmony);
     }
 
     [HarmonyPrefix]
     [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void ApplyPikminPatch(Harmony harmony)
+    public static void ApplyPatch(Harmony harmony)
     {
         var vehicleCollisionMethod = AccessTools.Method(typeof(v55VehicleCollisionTrigger), nameof(v55VehicleCollisionTrigger.OnTriggerEnter));
         var prefixvehicleCollisionMethod = AccessTools.Method(typeof(LethalMinCompatibility), nameof(OnTriggerEnter_Prefix));
