@@ -1,7 +1,11 @@
 ﻿namespace v55Cruiser.Utils;
 public static class SaveManager
 {
-    static string SavePrefix = "Version55CC.";
+    internal static string SavePrefix = "TruckData.";
+
+    // data to save
+    internal static string SavedTruckInterior = "AttachedTruckInterior";
+
     public static void Save<T>(string key, T data)
     {
         ES3.Save(SavePrefix + key, data, GameNetworkManager.Instance.currentSaveFileName);

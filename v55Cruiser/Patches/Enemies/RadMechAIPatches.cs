@@ -10,31 +10,29 @@ public static class RadMechAIPatches
 {
     [HarmonyPatch(nameof(RadMechAI.OnCollideWithPlayer))]
     [HarmonyPrefix]
-    static bool OnCollideWithPlayer_Prefix(RadMechAI __instance, Collider other, bool __runOriginal)
+    static bool RadMechAI_Pre_OnCollideWithPlayer(RadMechAI __instance, Collider other, bool __runOriginal)
     {
         if (!__runOriginal)
             return false;
 
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return true;
 
-        PlayerControllerB playerControllerB = __instance.MeetsStandardPlayerCollisionConditions(other, false, false);
-        if (playerControllerB == null)
+        PlayerControllerB playerController = 
+            __instance.MeetsStandardPlayerCollisionConditions(other, false, false);
+        if (playerController == null)
             return true;
 
-        if (VehicleUtils.IsPlayerSeatedInTruck())
-        {
+        bool playerSeated = VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController);
+        bool playerOnTruck = VehicleUtils.IsPlayerInTruckBounds(playerController, truckController);
+
+        if (playerSeated)
             return true;
-        }
-        if (VehicleUtils.IsPlayerInTruckBounds(truckController: controller))
-        {
-            if (VehicleUtils.IsPlayerProtectedByTruck(playerController: playerControllerB, truckController: controller))
-            {
-                return false;
-            }
+
+        if (!playerOnTruck)
             return true;
-        }
-        return true;
+
+        return !VehicleUtils.IsPlayerProtectedByTruck(playerController, truckController);
     }
 }

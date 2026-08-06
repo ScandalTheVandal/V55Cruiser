@@ -1,5 +1,6 @@
 ﻿using GameNetcodeStuff;
 using HarmonyLib;
+using UnityEngine;
 using v55Cruiser.Utils;
 
 namespace v55Cruiser.Patches.Enemies;
@@ -9,68 +10,71 @@ public static class GiantKiwiAIPatches
 {
     [HarmonyPatch(nameof(GiantKiwiAI.IsEggInsideClosedTruck))]
     [HarmonyPrefix]
-    static bool IsEggInsideClosedTruck_Prefix(GiantKiwiAI __instance, KiwiBabyItem egg, bool closedTruck, ref bool __result, bool __runOriginal)
+    static bool GiantKiwiAI_Pre_IsEggInsideClosedTruck(GiantKiwiAI __instance, KiwiBabyItem egg, bool closedTruck, ref bool __result, bool __runOriginal)
     {
         if (!__runOriginal)
             return false;
 
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return true;
 
-        if (egg.parentObject == controller.physicsRegion.parentNetworkObject.transform)
-        {
-            __result = !controller.liftGateOpen;
-            return false;
-        }
-        return true;
+        if (egg.parentObject != truckController.physicsRegion.parentNetworkObject.transform)
+            return true;
+
+        __result = VehicleUtils.IsTruckStorageEnclosed(truckController);
+        return false;
     }
 
     [HarmonyPatch(nameof(GiantKiwiAI.AnimationEventB))]
     [HarmonyPrefix]
-    static void AnimationEventB_Prefix(GiantKiwiAI __instance)
+    static void GiantKiwiAI_Pre_AnimationEventB(GiantKiwiAI __instance)
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return;
 
-        PlayerControllerB playerControllerB = GameNetworkManager.Instance.localPlayerController;
-        if (playerControllerB == null ||
-            !playerControllerB.isPlayerControlled ||
-            playerControllerB.isPlayerDead)
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+        if (playerController == null ||
+            !playerController.isPlayerControlled ||
+            playerController.isPlayerDead)
             return;
 
+        BoxCollider truckNavMeshBounds = truckController.collisionTrigger.insideTruckNavMeshBounds;
+        bool enemyInTruck = VehicleUtils.IsEnemyInTruck(__instance, truckNavMeshBounds);
+        bool playerOnTruck = VehicleUtils.IsPlayerInTruckBounds(playerController, truckController);
+        bool playerInStorage = VehicleUtils.IsPlayerInTruckStorage(playerController, truckController);
+        bool playerSeated = VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController);
+        bool storageEnclosed = VehicleUtils.IsTruckStorageEnclosed(truckController);
 
-        if (VehicleUtils.IsPlayerSeatedInTruck())
+        if (playerSeated)
         {
-            if (VehicleUtils.IsSeatedPlayerProtected(playerController: playerControllerB, truckController: controller, velocityCheck: true, velocityMagnitude: 13f))
-            {
+            if (VehicleUtils.IsSeatedPlayerProtectedByTruck(playerController, truckController, velocityCheck: true, velocityMagnitude: 13f))
                 __instance.timeSinceHittingPlayer = 0f;
-            }
             return;
         }
 
-        bool enemyInVan = VehicleUtils.IsEnemyInTruck(enemyScript: __instance, truckController: controller);
-        bool playerInStorage = VehicleUtils.IsPlayerInTruckStorage(truckController: controller);
-        bool backDoorsOpen = controller.liftGateOpen;
-        if (VehicleUtils.IsPlayerInTruckBounds(truckController: controller))
+        if (!playerOnTruck)
         {
-            if (playerInStorage && !backDoorsOpen && !enemyInVan || !playerInStorage && enemyInVan)
-            {
+            if (enemyInTruck)
                 __instance.timeSinceHittingPlayer = 0.4f;
-                return;
-            }
-            if (VehicleUtils.IsPlayerProtectedByTruck(playerController: playerControllerB, truckController: controller, velocityCheck: true, velocityMagnitude: 13f))
-            {
-                __instance.timeSinceHittingPlayer = 0.4f;
-                return;
-            }
             return;
         }
-        if (enemyInVan)
+
+        bool protectedByStorage =
+            (playerInStorage && storageEnclosed && !enemyInTruck) ||
+            (!playerInStorage && enemyInTruck);
+
+        if (protectedByStorage)
         {
             __instance.timeSinceHittingPlayer = 0.4f;
             return;
         }
+
+        if (enemyInTruck && playerInStorage)
+            return;
+
+        if (VehicleUtils.IsPlayerProtectedByTruck(playerController, truckController, velocityCheck: true, velocityMagnitude: 13f))
+            __instance.timeSinceHittingPlayer = 0.4f;
     }
 }

@@ -1,6 +1,5 @@
 ﻿using GameNetcodeStuff;
 using UnityEngine;
-using v55Cruiser.Utils;
 
 namespace v55Cruiser.Scripts;
 
@@ -10,9 +9,6 @@ public class v55PhysicsRegion : PlayerPhysicsRegion
 {
     private float playerInsideInterval;
     private bool playerInsideThisFrame;
-
-    private bool removePlayerFromZoneNextFrame;
-    private float checkZoneInterval;
 
     private bool addedRegionToList;
 
@@ -35,7 +31,7 @@ public class v55PhysicsRegion : PlayerPhysicsRegion
             {
                 Transform playerTransform = playerController.isInElevator ? playerController.playersManager.elevatorTransform : playerController.playersManager.playersContainer;
                 playerController.transform.SetParent(playerTransform);
-                Debug.Log($"V55: Player {i} setting parent since physics region was destroyed");
+                Plugin.LogDebug($"Player {i} setting parent since physics region was destroyed");
             }
         }
         if (!allowDroppingItems || itemDropCollider == null) return;
@@ -112,8 +108,6 @@ public class v55PhysicsRegion : PlayerPhysicsRegion
 
     public void SetPlayerZoneActive()
     {
-        checkZoneInterval = 0f;
-        removePlayerFromZoneNextFrame = false;
         playerInZone = true;
     }
 
@@ -164,8 +158,6 @@ public class v55PhysicsRegion : PlayerPhysicsRegion
         {
             if (playerInZone)
             {
-                checkZoneInterval = 0f;
-                removePlayerFromZoneNextFrame = false;
                 playerInZone = false;
             }
             return;

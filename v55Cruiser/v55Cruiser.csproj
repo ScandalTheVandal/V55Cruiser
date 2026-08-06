@@ -5,7 +5,7 @@
 		<AssemblyName>scandal.v55cruiser</AssemblyName>
 		<Product>v55Cruiser</Product>
 		<!-- Change to whatever version you're currently on. -->
-		<Version>1.5.3</Version>
+		<Version>1.5.13</Version>
 	</PropertyGroup>
 
 	<!-- Project Properties -->
@@ -86,22 +86,25 @@
 		</Reference>
 	</ItemGroup>
   
- 	<!-- Compatibility References -->
+ 	<!-- Manual Package References -->
   <ItemGroup>
-    <Reference Include="ScandalTweaks" Publicize="true">
-      <HintPath>$(MANUAL_REFS_DIR)\ScandalsTweaks\scandal.scandalstweaks.dll</HintPath>
+    <Reference Include="ScandalLib" Publicize="true">
+      <HintPath>$(MANUAL_REFERENCES_DIR)\ScandalTheVandal-ScandalLib\scandal.scandallib.dll</HintPath>
+    </Reference>    
+    <Reference Include="ScandalsTweaks" Publicize="true">
+      <HintPath>$(MANUAL_REFERENCES_DIR)\ScandalTheVandal-ScandalsTweaks\scandal.scandalstweaks.dll</HintPath>
     </Reference>
-    <Reference Include="LethalElementsTheta" Publicize="true">
-      <HintPath>$(MANUAL_REFS_DIR)\pacoito-LethalElementsTheta\voxx.LethalElementsPlugin.dll</HintPath>
+    <Reference Include="LethalElements" Publicize="true">
+      <HintPath>$(MANUAL_REFERENCES_DIR)\v0xx-LethalElements\voxx.LethalElementsPlugin.dll</HintPath>
     </Reference>
     <Reference Include="LethalMin" Publicize="true">
-      <HintPath>$(MANUAL_REFS_DIR)\NotezyBox-LethalMin\NoteBoxz.LethalMin.dll</HintPath>
+      <HintPath>$(MANUAL_REFERENCES_DIR)\NotezyBox-LethalMin\NoteBoxz.LethalMin.dll</HintPath>
     </Reference>
     <Reference Include="ImmersiveVisor" Publicize="true">
-      <HintPath>$(MANUAL_REFS_DIR)\Woecust-ImmersiveVisor\ImmersiveVisor.dll</HintPath>
+      <HintPath>$(MANUAL_REFERENCES_DIR)\Woecust-ImmersiveVisor\ImmersiveVisor.dll</HintPath>
     </Reference>
     <Reference Include="FirstPersonView" Publicize="true">
-      <HintPath>$(MANUAL_REFS_DIR)\FirstPersonView\FirstPersonView.dll</HintPath>
+      <HintPath>$(MANUAL_REFERENCES_DIR)\Seeya-FirstPersonView\FirstPersonView.dll</HintPath>
     </Reference>
   </ItemGroup>
 

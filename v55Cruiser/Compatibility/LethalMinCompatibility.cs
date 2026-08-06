@@ -1,7 +1,6 @@
 ﻿using HarmonyLib;
 using System;
 using UnityEngine;
-using System.Runtime.CompilerServices;
 using LethalMin;
 
 namespace v55Cruiser.Compatibility;
@@ -13,50 +12,31 @@ namespace v55Cruiser.Compatibility;
 ///  Available from BrutalCompanyMinusExtraReborn, licensed under GNU General Public License.
 ///  Source: https://github.com/TheSoftDiamond/BrutalCompanyMinusExtraReborn
 /// </summary>
-
+[HarmonyPatch]
 public static class LethalMinCompatibility
 {
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void PatchAllMethods(Harmony harmony)
-    {
-        ApplyPatch(harmony);
-    }
-
+    [HarmonyPatch(typeof(PikminVehicleController), nameof(PikminVehicleController.InitializeReferences))]
     [HarmonyPrefix]
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void ApplyPatch(Harmony harmony)
+    public static bool PikminVehicleController_Pre_InitializeReferences(PikminVehicleController __instance)
     {
-        var vehicleCollisionMethod = AccessTools.Method(typeof(v55VehicleCollisionTrigger), nameof(v55VehicleCollisionTrigger.OnTriggerEnter));
-        var prefixvehicleCollisionMethod = AccessTools.Method(typeof(LethalMinCompatibility), nameof(OnTriggerEnter_Prefix));
-
-        var pikminControllerMethod = AccessTools.Method(typeof(PikminVehicleController), nameof(PikminVehicleController.InitializeReferences));
-        var prefixPikminControllerMethod = AccessTools.Method(typeof(LethalMinCompatibility), nameof(InitializeReferences_Prefix));
-
-        harmony.Patch(vehicleCollisionMethod, prefix: new HarmonyMethod(prefixvehicleCollisionMethod));
-        harmony.Patch(pikminControllerMethod, prefix: new HarmonyMethod(prefixPikminControllerMethod));
-    }
-
-    public static bool InitializeReferences_Prefix(PikminVehicleController __instance)
-    {
-        if (__instance.TryGetComponent<v55VehicleController>(out var controller))
+        if (__instance.TryGetComponent<v55VehicleController>(out var truckController))
         {
-            __instance.controller = controller;
-            __instance.PointsRegion = controller.collisionTrigger.insideTruckNavMeshBounds;
-            __instance.PikminCheckRegion = controller.storageCompartment;
-
+            __instance.controller = truckController;
+            __instance.PointsRegion = truckController.collisionTrigger.insideTruckNavMeshBounds;
+            __instance.PikminCheckRegion = truckController.storageCompartment;
             __instance.PikminWarpPoint = new GameObject("Pikmin Warp Point").transform;
             __instance.PikminWarpPoint.SetParent(__instance.transform);
             __instance.PikminWarpPoint.localPosition = new Vector3(0f, -2f, -5f);
             __instance.PikminWarpPoint.localScale = new Vector3(1f, 1f, 1f);
-
             __instance.OriginalWTLocalPosition = __instance.PikminWarpPoint.localPosition;
-
             return false;
         }
         return true;
     }
 
-    public static bool OnTriggerEnter_Prefix(v55VehicleCollisionTrigger __instance, Collider other)
+    [HarmonyPatch(typeof(v55VehicleCollisionTrigger), nameof(v55VehicleCollisionTrigger.OnTriggerEnter))]
+    [HarmonyPrefix]
+    public static bool v55VehicleCollisionTrigger_Pre_OnTriggerEnter(v55VehicleCollisionTrigger __instance, Collider other)
     {
         try
         {
@@ -67,7 +47,7 @@ public static class LethalMinCompatibility
         }
         catch (Exception e)
         {
-            Plugin.Logger.LogError(string.Format("Error in CruiserXLCollisionTrigger.OnTriggerEnterPrefix: {0}", e));
+            Plugin.LogError(string.Format("Error in `v55VehicleCollisionTrigger.OnTriggerEnter`: {0}", e));
             return true;
         }
         return true;

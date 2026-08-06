@@ -8,9 +8,8 @@ public static class TerminalPatches
 {
     [HarmonyPatch(nameof(Terminal.Awake))]
     [HarmonyPrefix]
-    private static void Awake_Prefix(Terminal __instance)
+    private static void Terminal_Pre_Awake(Terminal __instance)
     {
-        // make the Cruiser 400 credits, like in version-55
         TerminalNode result = __instance.terminalNodes.allKeywords[0].compatibleNouns[40].result;
         result.itemCost = 400;
         result.terminalOptions[0].result.itemCost = 400;

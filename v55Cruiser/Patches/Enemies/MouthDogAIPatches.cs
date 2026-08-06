@@ -10,35 +10,29 @@ public static class MouthDogAIPatches
 {
     [HarmonyPatch(nameof(MouthDogAI.OnCollideWithPlayer))]
     [HarmonyPrefix]
-    static bool OnCollideWithPlayer_Prefix(MouthDogAI __instance, Collider other, bool __runOriginal)
+    static bool MouthDogAI_Pre_OnCollideWithPlayer(MouthDogAI __instance, Collider other, bool __runOriginal)
     {
         if (!__runOriginal)
             return false;
 
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return true;
 
-        PlayerControllerB playerControllerB = __instance.MeetsStandardPlayerCollisionConditions(other, __instance.inKillAnimation, false);
-        if (playerControllerB == null)
+        PlayerControllerB playerController = 
+            __instance.MeetsStandardPlayerCollisionConditions(other, __instance.inKillAnimation, false);
+        if (playerController == null)
             return true;
 
-        if (VehicleUtils.IsPlayerSeatedInTruck())
-        {
-            if (VehicleUtils.IsSeatedPlayerProtected(playerController: playerControllerB, truckController: controller, velocityCheck: false, velocityMagnitude: 0f))
-            {
-                return false;
-            }
+        bool playerSeated = VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController);
+        bool playerOnTruck = VehicleUtils.IsPlayerInTruckBounds(playerController, truckController);
+
+        if (playerSeated)
+            return !VehicleUtils.IsSeatedPlayerProtectedByTruck(playerController, truckController, velocityCheck: false, velocityMagnitude: 0f);
+
+        if (!playerOnTruck)
             return true;
-        }
-        if (VehicleUtils.IsPlayerInTruckBounds(truckController: controller))
-        {
-            if (VehicleUtils.IsPlayerProtectedByTruck(playerController: playerControllerB, truckController: controller, velocityCheck: false, velocityMagnitude: 0f))
-            {
-                return false;
-            }
-            return true;
-        }
-        return true;
+
+        return !VehicleUtils.IsPlayerProtectedByTruck(playerController, truckController, velocityCheck: false, velocityMagnitude: 0f);
     }
 }

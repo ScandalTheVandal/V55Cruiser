@@ -1,3 +1,4 @@
+using GameNetcodeStuff;
 using HarmonyLib;
 using v55Cruiser.Utils;
 
@@ -8,15 +9,14 @@ public static class HUDManagerPatches
 {
     [HarmonyPatch(nameof(HUDManager.HelmetCondensationDrops))]
     [HarmonyPostfix]
-    private static void HelmetCondensationDrops_Postfix(HUDManager __instance)
+    private static void HUDManager_Post_HelmetCondensationDrops(HUDManager __instance)
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return;
 
-        if (VehicleUtils.IsPlayerInTruckStorage(controller))
-        {
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+        if (VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
             __instance.increaseHelmetCondensation = false;
-        }
     }
 }

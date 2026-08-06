@@ -9,17 +9,19 @@ public static class ElevatorAnimationEventsPatches
 {
     [HarmonyPatch(nameof(ElevatorAnimationEvents.ElevatorFullyRunning))]
     [HarmonyPrefix]
-    static void ElevatorFullyRunning_Prefix()
+    static void ElevatorAnimationEvents_Pre_ElevatorFullyRunning()
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null) 
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return;
 
-        // do not save players who are on the magneted truck from being abandoned
-        PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
-        if (PlayerUtils.isSeatedInTruck ||
-            VehicleUtils.IsPlayerInTruckBounds(controller) ||
-            VehicleUtils.IsPlayerInTruckStorage(controller))
-            localPlayer.isInElevator = false;
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+
+        bool playerSeated = VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController);
+        bool playerOnTruck = VehicleUtils.IsPlayerInTruckBounds(playerController, truckController);
+        bool playerInStorage = VehicleUtils.IsPlayerInTruckStorage(playerController, truckController);
+
+        if (playerSeated || playerOnTruck || playerInStorage)
+            playerController.isInElevator = false;
     }
 }

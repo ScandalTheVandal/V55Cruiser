@@ -1,8 +1,8 @@
 ﻿using GameNetcodeStuff;
 using HarmonyLib;
-using ScandalsTweaks.Patches;
 using ScandalsTweaks.Utils;
 using ScandalsTweaks.Compatibility;
+using ScandalsTweaks.Patches.Enemies;
 using v55Cruiser.Utils;
 
 namespace v55Cruiser.Patches.InternalUtils;
@@ -10,25 +10,29 @@ namespace v55Cruiser.Patches.InternalUtils;
 [HarmonyPatch]
 public static class ScandalsTweaksPatches
 {
-    public static bool IsPlayerInCruiser(PlayerControllerB player, bool checkBlowback = false)
+    public static bool IsPlayerInTruck(PlayerControllerB player, bool checkBlowback = false, bool checkTrunkOnly = false, bool usePlayerData = false)
     {
-        if (checkBlowback && 
-            (PlayerControllerBPatches.playerData[player].playerSeatedInTruck || 
-             PlayerControllerBPatches.playerData[player].playerRidingInTruckStorage))
-            return true;
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
+            return false;
 
-        if (PlayerControllerBPatches.playerData[player].playerSeatedInTruck ||
-            PlayerControllerBPatches.playerData[player].playerRidingOnTruck)
-            return true;
+        var playerData = PlayerControllerBPatches.playerData[player];
+        bool playerInStorage = VehicleUtils.IsPlayerInTruckStorage(player, truckController, usePlayerData);
 
-        return false;
+        if (checkBlowback || checkTrunkOnly)
+            return playerInStorage;
+
+        bool playerOnTruck = VehicleUtils.IsPlayerInTruckBounds(player, truckController, usePlayerData);
+        bool playerSeated = VehicleUtils.IsPlayerSeatedInTruck(player, truckController);
+
+        return playerSeated || playerOnTruck || playerInStorage;
     }
 
-    [HarmonyPatch(typeof(JLLCompatibility), nameof(JLLCompatibility.CanPlayerBeBlown))]
+    [HarmonyPatch(typeof(JLLCompatibility), nameof(JLLCompatibility.CanBlowPlayer))]
     [HarmonyPrefix]
-    private static bool CanPlayerBeBlown_Prefix(PlayerControllerB player, ref bool __result)
+    private static bool JLLCompatibility_Pre_CanBlowPlayer(PlayerControllerB player, ref bool __result)
     {
-        if (IsPlayerInCruiser(player, true))
+        if (IsPlayerInTruck(player, true, false, false))
         {
             __result = false;
             return false;
@@ -36,11 +40,23 @@ public static class ScandalsTweaksPatches
         return true;
     }
 
-    [HarmonyPatch(typeof(GlobalUtilities), nameof(GlobalUtilities.ShouldAllowSightForVehicle))]
+    [HarmonyPatch(typeof(JLLCompatibility), nameof(JLLCompatibility.CanDamagePlayer))]
     [HarmonyPrefix]
-    private static bool ShouldAllowSightForVehicle_Prefix(PlayerControllerB player, EnemyAI enemy, ref bool __result)
+    private static bool JLLCompatibility_Pre_CanDamagePlayer(PlayerControllerB player, ref bool __result)
     {
-        if (IsPlayerInCruiser(player))
+        if (IsPlayerInTruck(player, false, true, false))
+        {
+            __result = false;
+            return false;
+        }
+        return true;
+    }
+
+    [HarmonyPatch(typeof(Utilities), nameof(Utilities.ShouldAllowSightThroughVehicle))]
+    [HarmonyPrefix]
+    private static bool Utilities_Pre_ShouldAllowSightThroughVehicle(PlayerControllerB player, EnemyAI enemy, ref bool __result)
+    {
+        if (IsPlayerInTruck(player, false, false, true))
         {
             __result = true;
             return false;
@@ -48,50 +64,45 @@ public static class ScandalsTweaksPatches
         return true;
     }
 
-    [HarmonyPatch(typeof(GiantKiwiAI_Patches), nameof(GiantKiwiAI_Patches.IsTargetPlayerInVehicle))]
+    [HarmonyPatch(typeof(GiantKiwiAIPatches), nameof(GiantKiwiAIPatches.IsTargetPlayerInVehicle))]
     [HarmonyPrefix]
-    private static bool IsTargetPlayerInVehicle_Prefix(GiantKiwiAI giantKiwiAi, VehicleController vehicleController, ref bool __result)
+    private static bool GiantKiwiAIPatches_Pre_IsTargetPlayerInVehicle(GiantKiwiAI giantKiwiAi, VehicleController vehicleController, ref bool __result)
     {
-        if (vehicleController is not v55VehicleController controller)
+        if (vehicleController is not v55VehicleController truckController)
             return true;
 
-        var targetData = PlayerControllerBPatches.playerData[giantKiwiAi.targetPlayer];
-        bool targetInTruck = targetData.playerSeatedInTruck ||
-                            (targetData.playerRidingInTruckStorage && !controller.liftGateOpen) ||
-                             controller.ontopOfTruckCollider.ClosestPoint(giantKiwiAi.targetPlayer.transform.position) ==
-                             giantKiwiAi.targetPlayer.transform.position;
+        PlayerControllerB targetPlayer = giantKiwiAi.targetPlayer;
 
-        if (targetInTruck)
+        bool playerSeated = VehicleUtils.IsPlayerSeatedInTruck(targetPlayer, truckController);
+        bool playerInStorage = VehicleUtils.IsPlayerInTruckStorage(targetPlayer, truckController, usePlayerData: true);
+        bool storageEnclosed = VehicleUtils.IsTruckStorageEnclosed(truckController);
+
+        bool playerOnTruck =
+            truckController.ontopOfTruckCollider.ClosestPoint(targetPlayer.transform.position) ==
+            targetPlayer.transform.position;
+
+        if (playerSeated ||
+            (playerInStorage && storageEnclosed) ||
+            playerOnTruck)
         {
             __result = true;
             return false;
         }
+
         return true;
     }
 
-    [HarmonyPatch(typeof(Landmine_Patches), nameof(Landmine_Patches.ShouldCheckCustomKnockback))]
+    [HarmonyPatch(typeof(BushWolfEnemyPatches), nameof(BushWolfEnemyPatches.IsTargetPlayerProtected))]
     [HarmonyPrefix]
-    private static bool ShouldCheckCustomKnockback_Prefix(ref bool __result)
+    private static bool BushWolfEnemyPatches_Pre_IsTargetPlayerProtected(PlayerControllerB player, VehicleController vehicle, ref bool __result)
     {
-        return true;
-    }
+        if (vehicle is not v55VehicleController truckController)
+            return true;
 
-    [HarmonyPatch(typeof(Landmine_Patches), nameof(Landmine_Patches.CanPlayerBeKnockedBack))]
-    [HarmonyPrefix]
-    private static bool CanPlayerBeKnockedBack_Prefix(ref bool __result)
-    {
-        return true;
-    }
+        if (!VehicleUtils.IsPlayerProtectedInTruckStorage(player, truckController, usePlayerData: true))
+            return true;
 
-    [HarmonyPatch(typeof(Landmine_Patches), nameof(Landmine_Patches.CurrentForceMultiplier))]
-    [HarmonyPrefix]
-    private static bool CurrentForceMultiplier_Prefix(ref float __result)
-    {
-        if (References.truckController != null)
-        {
-            __result = 1f;
-            return false;
-        }
-        return true;
+        __result = true;
+        return false;
     }
 }

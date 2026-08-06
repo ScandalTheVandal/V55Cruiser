@@ -10,42 +10,47 @@ public static class RedLocustBeesPatches
 {
     [HarmonyPatch(nameof(RedLocustBees.OnCollideWithPlayer))]
     [HarmonyPrefix]
-    static void OnCollideWithPlayer_Prefix(RedLocustBees __instance, Collider other)
+    static void RedLocustBees_Pre_OnCollideWithPlayer(RedLocustBees __instance, Collider other)
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return;
 
-        PlayerControllerB playerControllerB = __instance.MeetsStandardPlayerCollisionConditions(other, false, false);
-        if (playerControllerB == null)
+        PlayerControllerB playerController = __instance.MeetsStandardPlayerCollisionConditions(other, false, false);
+        if (playerController == null)
             return;
 
-        if (VehicleUtils.IsPlayerSeatedInTruck())
+        BoxCollider truckNavMeshBounds = truckController.collisionTrigger.insideTruckNavMeshBounds;
+        bool enemyInTruck = VehicleUtils.IsEnemyInTruck(__instance, truckNavMeshBounds);
+        bool playerOnTruck = VehicleUtils.IsPlayerInTruckBounds(playerController, truckController);
+        bool playerInStorage = VehicleUtils.IsPlayerInTruckStorage(playerController, truckController);
+        bool playerSeated = VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController);
+        bool storageEnclosed = VehicleUtils.IsTruckStorageEnclosed(truckController);
+
+        if (playerSeated)
+            return;
+
+        if (!playerOnTruck)
         {
+            if (enemyInTruck)
+                __instance.timeSinceHittingPlayer = 0f;
             return;
         }
 
-        bool enemyInVan = VehicleUtils.IsEnemyInTruck(enemyScript: __instance, truckController: controller);
-        bool playerInStorage = VehicleUtils.IsPlayerInTruckStorage(truckController: controller);
-        bool backDoorsOpen = controller.liftGateOpen;
-        if (VehicleUtils.IsPlayerInTruckBounds(truckController: controller))
-        {
-            if (playerInStorage && !backDoorsOpen && !enemyInVan || !playerInStorage && enemyInVan)
-            {
-                __instance.timeSinceHittingPlayer = 0f;
-                return;
-            }
-            if (VehicleUtils.IsPlayerProtectedByTruck(playerController: playerControllerB, truckController: controller, velocityCheck: true, velocityMagnitude: 5f))
-            {
-                __instance.timeSinceHittingPlayer = 0f;
-                return;
-            }
-            return;
-        }
-        if (enemyInVan)
+        bool protectedByStorage =
+            (playerInStorage && storageEnclosed && !enemyInTruck) ||
+            (!playerInStorage && enemyInTruck);
+
+        if (protectedByStorage)
         {
             __instance.timeSinceHittingPlayer = 0f;
             return;
         }
+
+        if (enemyInTruck && playerInStorage)
+            return;
+
+        if (VehicleUtils.IsPlayerProtectedByTruck(playerController, truckController, velocityCheck: true, velocityMagnitude: 5f))
+            __instance.timeSinceHittingPlayer = 0f;
     }
 }

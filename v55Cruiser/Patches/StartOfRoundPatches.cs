@@ -10,7 +10,7 @@ public static class StartOfRoundPatches
 {
     [HarmonyPatch(nameof(StartOfRound.Awake))]
     [HarmonyPrefix]
-    private static void Awake_Prefix(StartOfRound __instance)
+    private static void StartOfRound_Pre_Awake(StartOfRound __instance)
     {
         V55Networker.Create();
         __instance.VehiclesList[0] = References.companyCruiserPrefab;
@@ -23,45 +23,54 @@ public static class StartOfRoundPatches
     /// </summary>
     [HarmonyPatch(nameof(StartOfRound.SyncAlreadyHeldObjectsServerRpc))]
     [HarmonyPostfix]
-    static void SyncAlreadyHeldObjectsServerRpc_Postfix(StartOfRound __instance, int joiningClientId)
+    static void StartOfRound_Post_SyncAlreadyHeldObjectsServerRpc(StartOfRound __instance, int joiningClientId)
     {
-        if (!__instance.attachedVehicle ||  __instance.attachedVehicle is not v55VehicleController controller) return;
+        if (!__instance.attachedVehicle || __instance.attachedVehicle is not v55VehicleController controller) return;
         try
         {
             if (controller == null)
             {
-                Plugin.Logger.LogError("V55: Attempted to send client data, but the truck is null? please report this to Scandal.");
+                Plugin.LogError("Attempted to send client data, but the Truck is null? please report this to Scandal.");
                 return;
             }
             controller.SendClientSyncData();
         }
         catch (Exception e)
         {
-            Plugin.Logger.LogError("V55: Exception caught sending saved Cruiser data:\n" + e);
+            Plugin.LogError("Exception caught sending saved Truck data:\n" + e);
         }
     }
 
     [HarmonyPatch(nameof(StartOfRound.LoadAttachedVehicle))]
     [HarmonyPostfix]
-    static void LoadAttachedVehicle_Postfix(StartOfRound __instance)
+    static void StartOfRound_Post_LoadAttachedVehicle(StartOfRound __instance)
     {
-        if (!__instance.attachedVehicle ||  __instance.attachedVehicle is not v55VehicleController controller) return;
+        if (!__instance.attachedVehicle || __instance.attachedVehicle is not v55VehicleController controller) return;
         try
         {
             if (controller == null)
             {
-                Plugin.Logger.LogError("V55: Attempted to load saved data, but the van is null? please report this to Scandal.");
+                Plugin.LogError("Attempted to load saved data, but the Truck is null? please report this to Scandal.");
                 return;
             }
-            if (SaveManager.TryLoad<int>("AttachedVehicleInterior", out var interior))
+            if (SaveManager.TryLoad<int>(SaveManager.SavedTruckInterior, out var interior))
             {
+                if (UserConfig.PostBeta.Value) interior = 0;
                 controller.interiorType = interior;
                 controller.SetInteriorType(controller.interiorType);
+            }
+            controller.inBetaMode = UserConfig.PostBeta.Value;
+            controller.canDestroyTrees = !UserConfig.NoTreeDestruction.Value;
+            controller.hasAdditionalMusic = UserConfig.AdditionalRadioMusic.Value;
+            controller.useSteeringCurve = UserConfig.AlternateSteering.Value && !UserConfig.PostBeta.Value;
+            if (!controller.inBetaMode)
+            {
+                controller.canDestroyTrees = true;
             }
         }
         catch (Exception e)
         {
-            Plugin.Logger.LogError("V55: Exception caught loading saved Cruiser data:\n" + e);
+            Plugin.LogError("Exception caught loading saved Truck data:\n" + e);
         }
     }
 }

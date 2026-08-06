@@ -3,7 +3,6 @@ using GameNetcodeStuff;
 using HarmonyLib;
 using UnityEngine;
 using VoxxWeatherPlugin.Patches;
-using System.Runtime.CompilerServices;
 using VoxxWeatherPlugin.Weathers;
 using VoxxWeatherPlugin.Utils;
 
@@ -16,78 +15,40 @@ namespace v55Cruiser.Compatibility;
 ///  Available from BrutalCompanyMinusExtraReborn, licensed under GNU General Public License.
 ///  Source: https://github.com/TheSoftDiamond/BrutalCompanyMinusExtraReborn
 /// </summary>
-
+[HarmonyPatch]
 public static class LethalElementsCompatibility
 {
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void PatchAllMethods(Harmony harmony)
+    public static bool IsIndoorLighting(PlayerControllerB playerScript)
     {
-        ApplyPatch(harmony);
+        return playerScript.currentAudioTrigger != null && playerScript.currentAudioTrigger.insideLighting;
     }
 
+    [HarmonyPatch(typeof(PlayerEffectsManager), nameof(PlayerEffectsManager.SetPlayerTemperature))]
     [HarmonyPrefix]
-    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.NoOptimization)]
-    public static void ApplyPatch(Harmony harmony)
-    {
-        var originalHeatwaveStopMethod = AccessTools.Method(typeof(HeatwavePatches), nameof(HeatwavePatches.CheckConditionsForHeatingStop));
-        var originalHeatwavePauseMethod = AccessTools.Method(typeof(HeatwavePatches), nameof(HeatwavePatches.CheckConditionsForHeatingPause));
-        var originalSetTempMethod = AccessTools.Method(typeof(PlayerEffectsManager), nameof(PlayerEffectsManager.SetPlayerTemperature));
-        var originalUpdateMethod = AccessTools.Method(typeof(BlizzardWeather), nameof(BlizzardWeather.Update));
-        var originalVFXUpdateMethod = AccessTools.Method(typeof(SnowfallVFXManager), nameof(SnowfallVFXManager.Update));
-        var originalSetZoneMethod = AccessTools.Method(typeof(BlizzardWeather), nameof(BlizzardWeather.SetColdZoneState));
-        var originalBaseSetZoneMethod = AccessTools.Method(typeof(SnowfallWeather), nameof(SnowfallWeather.SetColdZoneState));
-
-        var originalVehicleStartMethod = AccessTools.Method(typeof(v55VehicleController), nameof(v55VehicleController.Start));
-        var originalVehicleFixedUpdateMethod = AccessTools.Method(typeof(v55VehicleController), nameof(v55VehicleController.FixedUpdate));
-
-        var prefixHeatwaveStopMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(CheckConditionsForHeatingStop_Prefix));
-        var prefixHeatwavePauseMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(CheckConditionsForHeatingPause_Prefix));
-        var prefixSetTempMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(SetPlayerTemperature_Heatwave));
-        var prefixUpdateMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(Update_Prefix));
-        var postfixVFXUpdateMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(VFXUpdate_Postfix));
-        var prefixSetZoneMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(SetColdZoneState_Prefix));
-        var prefixBaseSetZoneMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(SetBaseColdZoneState_Prefix));
-
-        var prefixVehicleStartMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(VehicleSnowTracksPatch_Prefix));
-        var prefixVehicleFixedUpdateMethod = AccessTools.Method(typeof(LethalElementsCompatibility), nameof(VehicleSnowTracksFixedUpdatePatch_Prefix));
-
-        harmony.Patch(originalHeatwaveStopMethod, prefix: new HarmonyMethod(prefixHeatwaveStopMethod));
-        harmony.Patch(originalHeatwavePauseMethod, prefix: new HarmonyMethod(prefixHeatwavePauseMethod));
-        harmony.Patch(originalSetTempMethod, prefix: new HarmonyMethod(prefixSetTempMethod));
-        harmony.Patch(originalUpdateMethod, prefix: new HarmonyMethod(prefixUpdateMethod));
-        harmony.Patch(originalVFXUpdateMethod, postfix: new HarmonyMethod(postfixVFXUpdateMethod));
-        harmony.Patch(originalSetZoneMethod, prefix: new HarmonyMethod(prefixSetZoneMethod));
-        harmony.Patch(originalBaseSetZoneMethod, prefix: new HarmonyMethod(prefixBaseSetZoneMethod));
-
-        harmony.Patch(originalVehicleStartMethod, prefix: new HarmonyMethod(prefixVehicleStartMethod));
-        harmony.Patch(originalVehicleFixedUpdateMethod, prefix: new HarmonyMethod(prefixVehicleFixedUpdateMethod));
-    }
-
-    // hacky method to alter the heat transfer rate during heatwave
-    public static void SetPlayerTemperature_Heatwave(PlayerEffectsManager __instance, float temperatureDelta)
+    public static void PlayerEffectsManager_Pre_SetPlayerTemperature(PlayerEffectsManager __instance, float temperatureDelta)
     {
         if (HeatwaveWeather.Instance == null || !HeatwaveWeather.Instance.IsActive)
             return;
 
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return;
 
-        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
-            !VehicleUtils.IsPlayerSeatedInTruck() &&
-            !VehicleUtils.IsPlayerInTruckStorage(controller))
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+        if (!VehicleUtils.IsPlayerInTruckBounds(playerController, truckController) &&
+            !VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) &&
+            !VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
             return;
 
-        bool isStorageEnclosed = !controller.liftGateOpen;
-        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) && !VehicleUtils.IsPlayerSeatedInTruck() && !VehicleUtils.IsPlayerInTruckStorage(controller);
-        PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
-        bool inDoorLighting = localPlayer.currentAudioTrigger != null && localPlayer.currentAudioTrigger.insideLighting;
+        bool isStorageEnclosed = VehicleUtils.IsTruckStorageEnclosed(truckController);
+        bool outsideOfTruck = VehicleUtils.IsPlayerOnOutsideOfTruck(playerController, truckController);
+        bool inDoorLighting = IsIndoorLighting(playerController);
 
-        if (VehicleUtils.IsPlayerSeatedInTruck())
+        if (VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController))
         {
-            PlayerEffectsManager.heatTransferRate = controller.windshieldBroken ? 0.9f : 0.2f;
+            PlayerEffectsManager.heatTransferRate = inDoorLighting ? 1 : truckController.windshieldBroken ? 0.9f : 0.2f;
         }
-        else if (VehicleUtils.IsPlayerInTruckStorage(controller) && isStorageEnclosed)
+        else if (VehicleUtils.IsPlayerInTruckStorage(playerController, truckController) && isStorageEnclosed)
         {
             if (!inDoorLighting)
             {
@@ -99,12 +60,16 @@ public static class LethalElementsCompatibility
         if (outsideOfTruck) PlayerEffectsManager.heatTransferRate = 1f;
     }
 
-    public static void VehicleSnowTracksPatch_Prefix(v55VehicleController __instance)
+    [HarmonyPatch(typeof(v55VehicleController), nameof(v55VehicleController.Start))]
+    [HarmonyPostfix]
+    public static void v55VehicleController_Post_Start(v55VehicleController __instance)
     {
         SnowTrackersManager.AddFootprintTracker(__instance, 6f, 0.75f, 1f, new Vector3(0, 0, -1f));
     }
 
-    public static void VehicleSnowTracksFixedUpdatePatch_Prefix(v55VehicleController __instance)
+    [HarmonyPatch(typeof(v55VehicleController), nameof(v55VehicleController.FixedUpdate))]
+    [HarmonyPostfix]
+    public static void v55VehicleController_Post_FixedUpdate(v55VehicleController __instance)
     {
         if (!SnowPatches.IsSnowActive())
         {
@@ -113,62 +78,72 @@ public static class LethalElementsCompatibility
         SnowTrackersManager.UpdateFootprintTracker(__instance, !__instance.allWheelsAirborne);
     }
 
-    public static void VFXUpdate_Postfix()
+    [HarmonyPatch(typeof(SnowfallVFXManager), nameof(SnowfallVFXManager.Update))]
+    [HarmonyPostfix]
+    public static void SnowfallVFXManager_Post_Update_VFX()
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return;
 
-        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
-            !VehicleUtils.IsPlayerSeatedInTruck() &&
-            !VehicleUtils.IsPlayerInTruckStorage(controller))
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+        if (!VehicleUtils.IsPlayerInTruckBounds(playerController, truckController) &&
+            !VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) &&
+            !VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
             return;
 
-        if (VehicleUtils.IsPlayerSeatedInTruck() || VehicleUtils.IsPlayerInTruckStorage(controller))
+        if (VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) ||
+            VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
         {
             PlayerEffectsManager.isUnderSnow = false;
             SnowfallVFXManager.snowMovementHindranceMultiplier = 1f;
         }
     }
 
-    public static bool SetColdZoneState_Prefix(BlizzardWeather __instance)
+    [HarmonyPatch(typeof(BlizzardWeather), nameof(BlizzardWeather.SetColdZoneState))]
+    [HarmonyPrefix]
+    public static bool BlizzardWeather_Pre_SetColdZoneState(BlizzardWeather __instance)
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return true;
 
-        if (VehicleUtils.IsPlayerInTruckBounds(controller) ||
-            VehicleUtils.IsPlayerSeatedInTruck() ||
-            VehicleUtils.IsPlayerInTruckStorage(controller))
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+        if (VehicleUtils.IsPlayerInTruckBounds(playerController, truckController) ||
+            VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) ||
+            VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
             return false;
+
         return true;
     }
 
-    public static bool SetBaseColdZoneState_Prefix(SnowfallWeather __instance)
+    [HarmonyPatch(typeof(SnowfallWeather), nameof(SnowfallWeather.SetColdZoneState))]
+    [HarmonyPrefix]
+    public static bool SnowfallWeather_Pre_SetColdZoneState(SnowfallWeather __instance)
     {
         if (BlizzardWeather.Instance == null)
             return true;
 
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return true;
 
-        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
-            !VehicleUtils.IsPlayerSeatedInTruck() &&
-            !VehicleUtils.IsPlayerInTruckStorage(controller))
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+        if (!VehicleUtils.IsPlayerInTruckBounds(playerController, truckController) &&
+            !VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) &&
+            !VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
             return true;
 
-        bool isStorageEnclosed = !controller.liftGateOpen;
-        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) && !VehicleUtils.IsPlayerSeatedInTruck() && !VehicleUtils.IsPlayerInTruckStorage(controller);
-        PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
-        bool inDoorLighting = localPlayer.currentAudioTrigger != null && localPlayer.currentAudioTrigger.insideLighting;
+        bool isStorageEnclosed = VehicleUtils.IsTruckStorageEnclosed(truckController);
+        bool outsideOfTruck = VehicleUtils.IsPlayerOnOutsideOfTruck(playerController, truckController);
+        bool inDoorLighting = IsIndoorLighting(playerController);
 
-        if (VehicleUtils.IsPlayerSeatedInTruck())
+        if (VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController))
         {
-            PlayerEffectsManager.isInColdZone = IsWindAllowedVehicle(localPlayer, controller) && BlizzardWeather.Instance.isLocalPlayerInWind;
+            PlayerEffectsManager.isInColdZone = IsWindAllowedVehicle(playerController, truckController) && BlizzardWeather.Instance.isLocalPlayerInWind;
             return false;
         }
-        else if (VehicleUtils.IsPlayerInTruckStorage(controller))
+        else if (VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
         {
             if (isStorageEnclosed)
             {
@@ -176,42 +151,42 @@ public static class LethalElementsCompatibility
             }
             else
             {
-                PlayerEffectsManager.isInColdZone = IsWindAllowedVehicle(localPlayer, controller) && BlizzardWeather.Instance.isLocalPlayerInWind;
+                PlayerEffectsManager.isInColdZone = IsWindAllowedVehicle(playerController, truckController) && BlizzardWeather.Instance.isLocalPlayerInWind;
             }
             return false;
         }
         else if (outsideOfTruck)
         {
-            PlayerEffectsManager.isInColdZone = IsWindAllowedVehicle(localPlayer, controller) && BlizzardWeather.Instance.isLocalPlayerInWind;
+            PlayerEffectsManager.isInColdZone = IsWindAllowedVehicle(playerController, truckController) && BlizzardWeather.Instance.isLocalPlayerInWind;
             return false;
         }
         return true;
     }
 
-    public static bool Update_Prefix(BlizzardWeather __instance)
+    [HarmonyPatch(typeof(BlizzardWeather), nameof(BlizzardWeather.Update))]
+    [HarmonyPrefix]
+    public static bool BlizzardWeather_Pre_Update(BlizzardWeather __instance)
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return true;
 
-        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
-            !VehicleUtils.IsPlayerSeatedInTruck() &&
-            !VehicleUtils.IsPlayerInTruckStorage(controller))
+        PlayerControllerB playerController = GameNetworkManager.Instance.localPlayerController;
+        if (!VehicleUtils.IsPlayerInTruckBounds(playerController, truckController) &&
+            !VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) &&
+            !VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
             return true;
 
-        bool isStorageEnclosed = !controller.liftGateOpen;
-        bool inCabOrStorage = VehicleUtils.IsPlayerSeatedInTruck() || VehicleUtils.IsPlayerInTruckStorage(controller);
-        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) && !VehicleUtils.IsPlayerSeatedInTruck() && !VehicleUtils.IsPlayerInTruckStorage(controller);
-        PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
-        bool inDoorLighting = localPlayer.currentAudioTrigger != null && localPlayer.currentAudioTrigger.insideLighting;
-
+        bool isStorageEnclosed = VehicleUtils.IsTruckStorageEnclosed(truckController);
+        bool outsideOfTruck = VehicleUtils.IsPlayerOnOutsideOfTruck(playerController, truckController);
         SnowfallWeather.Instance?.Update();
 
-        if (inCabOrStorage)
+        if (VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
         {
             PlayerEffectsManager.heatTransferRate = 0.75f;
+            __instance.isPlayerInBlizzard = __instance.isLocalPlayerInWind && !VehicleUtils.IsTruckStorageEnclosed(truckController);
         }
-        if (outsideOfTruck)
+        else if (VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) || outsideOfTruck)
         {
             PlayerEffectsManager.heatTransferRate = 1f;
             __instance.isPlayerInBlizzard = __instance.isLocalPlayerInWind;
@@ -219,41 +194,42 @@ public static class LethalElementsCompatibility
         return false;
     }
 
-    public static bool IsWindAllowedVehicle(PlayerControllerB localPlayer, v55VehicleController controller)
+    public static bool IsWindAllowedVehicle(PlayerControllerB playerController, v55VehicleController truckController)
     {
-        if (localPlayer.currentAudioTrigger != null &&
-                localPlayer.currentAudioTrigger.insideLighting) return false;
+        if (IsIndoorLighting(playerController)) return false;
 
-        bool isStorageEnclosed = !controller.liftGateOpen;
-        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) || VehicleUtils.IsPlayerSeatedInTruck();
+        bool isStorageEnclosed = VehicleUtils.IsTruckStorageEnclosed(truckController);
+        bool outsideOfTruck = VehicleUtils.IsPlayerOnOutsideOfTruck(playerController, truckController);
 
-        if (VehicleUtils.IsPlayerInTruckStorage(controller) && !isStorageEnclosed)
+        if (VehicleUtils.IsPlayerInTruckStorage(playerController, truckController) && !isStorageEnclosed)
         {
             return true;
         }
-        else if (outsideOfTruck)
+        else if (VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) || outsideOfTruck)
         {
             return true;
         }
         return false;
     }
 
-    public static bool CheckConditionsForHeatingStop_Prefix(PlayerControllerB playerController, ref bool __result)
+    [HarmonyPatch(typeof(HeatwavePatches), nameof(HeatwavePatches.CheckConditionsForHeatingStop))]
+    [HarmonyPrefix]
+    public static bool HeatwavePatches_Pre_CheckConditionsForHeatingStop(PlayerControllerB playerController, ref bool __result)
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return true;
 
-        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
-            !VehicleUtils.IsPlayerSeatedInTruck() &&
-            !VehicleUtils.IsPlayerInTruckStorage(controller))
+        if (!VehicleUtils.IsPlayerInTruckBounds(playerController, truckController) &&
+            !VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) &&
+            !VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
             return true;
 
-        bool isStorageEnclosed = !controller.liftGateOpen;
-        bool outsideOfTruck = VehicleUtils.IsPlayerInTruckBounds(controller) && !VehicleUtils.IsPlayerSeatedInTruck() && !VehicleUtils.IsPlayerInTruckStorage(controller);
-        bool inDoorLighting = playerController.currentAudioTrigger != null && playerController.currentAudioTrigger.insideLighting;
+        bool isStorageEnclosed = VehicleUtils.IsTruckStorageEnclosed(truckController);
+        bool outsideOfTruck = VehicleUtils.IsPlayerOnOutsideOfTruck(playerController, truckController);
+        bool inDoorLighting = IsIndoorLighting(playerController);
 
-        if (VehicleUtils.IsPlayerInTruckStorage(controller) && isStorageEnclosed)
+        if (VehicleUtils.IsPlayerInTruckStorage(playerController, truckController) && isStorageEnclosed)
         {
             __result = true;
         }
@@ -265,15 +241,17 @@ public static class LethalElementsCompatibility
         return false;
     }
 
-    public static bool CheckConditionsForHeatingPause_Prefix(PlayerControllerB playerController, ref bool __result)
+    [HarmonyPatch(typeof(HeatwavePatches), nameof(HeatwavePatches.CheckConditionsForHeatingPause))]
+    [HarmonyPrefix]
+    public static bool HeatwavePatches_Pre_CheckConditionsForHeatingPause(PlayerControllerB playerController, ref bool __result)
     {
-        v55VehicleController controller = References.truckController;
-        if (controller == null)
+        v55VehicleController truckController = VehicleUtils.truckController;
+        if (truckController == null)
             return true;
 
-        if (!VehicleUtils.IsPlayerInTruckBounds(controller) &&
-            !VehicleUtils.IsPlayerSeatedInTruck() &&
-            !VehicleUtils.IsPlayerInTruckStorage(controller))
+        if (!VehicleUtils.IsPlayerInTruckBounds(playerController, truckController) &&
+            !VehicleUtils.IsPlayerSeatedInTruck(playerController, truckController) &&
+            !VehicleUtils.IsPlayerInTruckStorage(playerController, truckController))
             return true;
 
         __result = false;

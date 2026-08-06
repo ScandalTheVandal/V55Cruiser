@@ -1,5 +1,5 @@
 ﻿using GameNetcodeStuff;
-using ScandalsTweaks.Scripts;
+using ScandalLib.Scripts;
 using v55Cruiser.Patches;
 using v55Cruiser.Utils;
 
@@ -20,10 +20,5 @@ public class v55SeatAnimator : VehicleSeatAnimator
     {
         player.ladderCameraHorizontal = 0f;
         PlayerControllerBPatches.playerData[player].syncedCameraHorizontal = 0f;
-    }
-
-    public override void SetPlayerSeated(bool setSeated, PlayerControllerB localPlayer)
-    {
-        PlayerUtils.isSeatedInTruck = setSeated;
     }
 }

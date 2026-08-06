@@ -1,6 +1,5 @@
 ﻿using UnityEngine;
 
-
 namespace v55Cruiser.Scripts;
 
 public class v55InteriorType : MonoBehaviour

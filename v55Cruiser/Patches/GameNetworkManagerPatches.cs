@@ -12,7 +12,7 @@ public static class GameNetworkManagerPatches
 {
     [HarmonyPatch(nameof(GameNetworkManager.Start))]
     [HarmonyPostfix]
-    private static void Start_Postfix(GameNetworkManager __instance)
+    private static void GameNetworkManager_Post_Start(GameNetworkManager __instance)
     {
         V55Networker.Init();
         foreach (GameObject obj in Plugin.networkPrefabs)
@@ -24,24 +24,24 @@ public static class GameNetworkManagerPatches
 
     [HarmonyPatch(nameof(GameNetworkManager.SaveItemsInShip))]
     [HarmonyPostfix]
-    static void SaveItemsInShip_Postfix(GameNetworkManager __instance)
+    static void GameNetworkManager_Post_SaveItemsInShip(GameNetworkManager __instance)
     {
         try
         {
             if (StartOfRound.Instance.attachedVehicle && StartOfRound.Instance.attachedVehicle is v55VehicleController controller)
             {
-                SaveManager.Save("AttachedVehicleInterior", controller.interiorType);
-                Plugin.Logger.LogMessage("V55: Successfully saved Cruiser data.");
+                SaveManager.Save(SaveManager.SavedTruckInterior, controller.interiorType);
+                Plugin.LogMessage("Successfully saved Truck data.");
             }
             else
             {
-                SaveManager.Delete("AttachedVehicleInterior");
-                Plugin.Logger.LogMessage("V55: Successfully deleted Cruiser data.");
+                SaveManager.Delete(SaveManager.SavedTruckInterior);
+                Plugin.LogMessage("Successfully deleted Truck data.");
             }
         }
         catch (Exception e)
         {
-            Plugin.Logger.LogError("V55: Exception caught saving Cruiser data:\n" + e);
+            Plugin.LogError("Exception caught saving Truck data:\n" + e);
         }
     }
 }

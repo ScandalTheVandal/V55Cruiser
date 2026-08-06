@@ -1,6 +1,6 @@
 ﻿using GameNetcodeStuff;
 using UnityEngine;
-using UnityEngine.UIElements;
+using v55Cruiser.Utils;
 
 public class v55VehicleCollisionTrigger : MonoBehaviour
 {
@@ -103,16 +103,16 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             if (Time.realtimeSinceStartup - timeSinceHittingEnemy < 0.25f)
                 return;
 
-            if (!other.TryGetComponent<EnemyAICollisionDetect>(out var enemyAIcollision))
+            if (!other.TryGetComponent<EnemyAICollisionDetect>(out var enemyCollision))
                 return;
 
-            if (enemyAIcollision.mainScript == null)
+            if (enemyCollision.mainScript == null)
                 return;
 
-            if (enemyAIcollision.mainScript.isEnemyDead)
+            if (enemyCollision.mainScript.isEnemyDead)
                 return;
 
-            if (enemyAIcollision.mainScript is SandWormAI)
+            if (enemyCollision.mainScript is SandWormAI)
             {
                 timeSinceHittingEnemy = Time.realtimeSinceStartup;
                 mainScript.mainRigidbody.AddExplosionForce(mainScript.mainRigidbody.mass * 100f, mainScript.transform.position + mainScript.transform.forward + Vector3.up * 1.5f, 12f, 3f, ForceMode.Impulse);
@@ -120,23 +120,19 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             }
 
             // prevent tulip-snakes bouncing the vehicle if actively clinging to a player
-            if (enemyAIcollision.mainScript is FlowerSnakeEnemy flowerSnake && flowerSnake.clingingToPlayer)
+            if (enemyCollision.mainScript is FlowerSnakeEnemy flowerSnake && flowerSnake.clingingToPlayer)
                 return;
 
-            if (Vector3.Angle(mainScript.averageVelocity, enemyAIcollision.mainScript.transform.position - transform.position) > 130f)
+            if (Vector3.Angle(mainScript.averageVelocity, enemyCollision.mainScript.transform.position - transform.position) > 130f)
                 return;
 
-            if (mainScript.liftGateOpen && 
-                (insideTruckNavMeshBounds.ClosestPoint(enemyAIcollision.mainScript.transform.position) == enemyAIcollision.mainScript.transform.position || 
-                insideTruckNavMeshBounds.ClosestPoint(enemyAIcollision.mainScript.agent.destination) == enemyAIcollision.mainScript.agent.destination))
-            {
+            if (!mainScript.liftGateOpen && VehicleUtils.IsEnemyInTruck(enemyCollision.mainScript, insideTruckNavMeshBounds))
                 return;
-            }
 
             bool dealDamage = false;
             for (int i = 0; i < enemiesLastHit.Length; i++)
             {
-                if (enemiesLastHit[i] == enemyAIcollision.mainScript)
+                if (enemiesLastHit[i] == enemyCollision.mainScript)
                 {
                     if (Time.realtimeSinceStartup - timeSinceHittingEnemy < 0.6f || mainScript.averageVelocity.magnitude < 4f)
                     {
@@ -146,22 +142,21 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             }
 
             timeSinceHittingEnemy = Time.realtimeSinceStartup;
-            Vector3 position = enemyAIcollision.transform.position;
+            Vector3 position = enemyCollision.transform.position;
             bool enemyDamageByCar = false;
 
-
-            if (!ReactToInvidiualEnemies(enemyAIcollision, out enemyDamageByCar, position, dealDamage))
+            if (!ReactToInvidiualEnemies(enemyCollision, out enemyDamageByCar, position, dealDamage))
             {
-                switch (enemyAIcollision.mainScript.enemyType.SizeLimit)
+                switch (enemyCollision.mainScript.enemyType.SizeLimit)
                 {
                     case NavSizeLimit.NoLimit:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 1f, enemyAIcollision.mainScript, dealDamage);
+                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 1f, enemyCollision.mainScript, dealDamage);
                         break;
                     case NavSizeLimit.MediumSpaces:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 3f, enemyAIcollision.mainScript, dealDamage);
+                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 3f, enemyCollision.mainScript, dealDamage);
                         break;
                     case NavSizeLimit.SmallSpaces:
-                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 2f, enemyAIcollision.mainScript, dealDamage);
+                        enemyDamageByCar = mainScript.CarReactToObstacle(mainScript.averageVelocity, position, mainScript.averageVelocity, CarObstacleType.Enemy, 2f, enemyCollision.mainScript, dealDamage);
                         break;
                 }
             }
@@ -169,13 +164,13 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             if (enemyDamageByCar)
             {
                 enemyIndex = (enemyIndex + 1) % 3;
-                enemiesLastHit[enemyIndex] = enemyAIcollision.mainScript;
+                enemiesLastHit[enemyIndex] = enemyCollision.mainScript;
                 return;
             }
 
             for (int j = 0; j < enemiesLastHit.Length; j++)
             {
-                if (enemiesLastHit[j] == enemyAIcollision.mainScript)
+                if (enemiesLastHit[j] == enemyCollision.mainScript)
                 {
                     enemiesLastHit[j] = null!;
                 }
@@ -183,8 +178,8 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
         }
     }
 
-    // Treat foxes as 'Medium'
-    // Treat baboons and masked as 'Small'
+    // Treat Kidnapper-Foxes as 'Medium'
+    // Treat Baboons and Masked as 'Small'
     public bool ReactToInvidiualEnemies(EnemyAICollisionDetect enemyAIcollision, out bool enemyDamageByCar, Vector3 enemyPos, bool dealDamage)
     {
         enemyDamageByCar = false;

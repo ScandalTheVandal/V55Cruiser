@@ -4,11 +4,9 @@ using v55Cruiser.Utils;
 
 namespace v55Cruiser.Scripts;
 
-// A stripped down version of the v55PhysicsRegion, this is just used for the storage compartment space to determine whether a player is in the storage compartment.
-// Ignores seated players.
 public class v55PlayerZone : MonoBehaviour
 {
-    public v55VehicleController haulerController = null!;
+    public v55VehicleController truckController = null!;
 
     public Transform physicsTransform = null!;
     public Collider physicsCollider = null!;
@@ -30,15 +28,15 @@ public class v55PlayerZone : MonoBehaviour
     {
         if (setInZoneWhileSeated && unsetInZoneWhileSeated)
         {
-            Plugin.Logger.LogWarning("V55: 'Set in zone' and 'Unset in zone' are set simulteanously! this will cause issues!");
-            Plugin.Logger.LogWarning("V55: Fallback to set behaviour 'Set zone --> not seated'");
+            Plugin.LogWarning("'Set in zone' and 'Unset in zone' are set simulteanously! this will cause issues");
+            Plugin.LogWarning("Fallback to set behaviour 'Set zone --> not seated'");
             setInZoneWhileSeated = false;
             unsetInZoneWhileSeated = true;
         }
         else if (!setInZoneWhileSeated && !unsetInZoneWhileSeated)
         {
-            Plugin.Logger.LogWarning("V55: 'Set in zone' and 'Unset in zone' are unset simulteanously! this will cause issues!");
-            Plugin.Logger.LogWarning("V55: Fallback to set behaviour 'Set zone --> not seated'");
+            Plugin.LogWarning("'Set in zone' and 'Unset in zone' are unset simulteanously! this will cause issues");
+            Plugin.LogWarning("Fallback to set behaviour 'Set zone --> not seated'");
             setInZoneWhileSeated = false;
             unsetInZoneWhileSeated = true;
         }
@@ -80,7 +78,7 @@ public class v55PlayerZone : MonoBehaviour
             physicsCollider.enabled = false;
             return;
         }
-        if (VehicleUtils.IsPlayerSeatedInTruck())
+        if (VehicleUtils.IsPlayerSeatedInTruck(GameNetworkManager.Instance.localPlayerController, truckController))
         {
             if (setInZoneWhileSeated)
             {
