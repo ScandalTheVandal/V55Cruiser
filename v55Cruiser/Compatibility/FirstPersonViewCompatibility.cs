@@ -10,10 +10,9 @@ namespace v55Cruiser.Compatibility;
 ///  Available from BrutalCompanyMinusExtraReborn, licensed under GNU General Public License.
 ///  Source: https://github.com/TheSoftDiamond/BrutalCompanyMinusExtraReborn
 /// </summary>
-[HarmonyPatch]
 public static class FirstPersonViewCompatibility
 {
-    [HarmonyPatch(typeof(v55VehicleController), nameof(v55VehicleController.SetIgnitionKey))]
+    [HarmonyPatch(typeof(v55VehicleController), nameof(v55VehicleController.SetCarIgnitionKey))]
     [HarmonyPrefix]
     public static void v55VehicleController_Pre_SetCarKeyEffects(v55VehicleController __instance, ref bool localUseBodyHands)
     {

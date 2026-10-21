@@ -3,10 +3,10 @@ using UnityEngine;
 
 namespace v55Cruiser.Patches;
 
-[HarmonyPatch(typeof(TerrainObstacleTrigger))]
+[HarmonyPatch]
 public static class TerrainObstacleTriggerPatches
 {
-    [HarmonyPatch(nameof(TerrainObstacleTrigger.OnTriggerEnter))]
+    [HarmonyPatch(typeof(TerrainObstacleTrigger), nameof(TerrainObstacleTrigger.OnTriggerEnter))]
     [HarmonyPrefix]
     static bool TerrainObstacleTrigger_Pre_OnTriggerEnter(TerrainObstacleTrigger __instance, bool __runOriginal, Collider other)
     {

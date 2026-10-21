@@ -3,10 +3,10 @@ using v55Cruiser.Utils;
 
 namespace v55Cruiser.Patches;
 
-[HarmonyPatch(typeof(Terminal))]
+[HarmonyPatch]
 public static class TerminalPatches
 {
-    [HarmonyPatch(nameof(Terminal.Awake))]
+    [HarmonyPatch(typeof(Terminal), nameof(Terminal.Awake))]
     [HarmonyPrefix]
     private static void Terminal_Pre_Awake(Terminal __instance)
     {

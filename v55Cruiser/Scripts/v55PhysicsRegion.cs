@@ -1,201 +1,122 @@
 ﻿using GameNetcodeStuff;
+using ScandalLib.Scripts;
 using UnityEngine;
 
 namespace v55Cruiser.Scripts;
 
-// An extended physics region, allowing the ability to still read whether the player is "within the physics regions bounds" even while the truck is past
-// the tipping angle, also includes some minor optimisations over the base physics region.
-public class v55PhysicsRegion : PlayerPhysicsRegion
+public class v55PhysicsRegion : ExtendedPhysicsRegion
 {
-    private float playerInsideInterval;
-    private bool playerInsideThisFrame;
+    public v55VehicleController vehicleController = null!;
 
-    private bool addedRegionToList;
-
-    public bool playerInZone;
-    public bool isRegionActive;
-
-    public bool parentPlayerBodies;
-
-    public new void OnDestroy()
+    // must null check before calling
+    internal bool IsLocalPlayerInShelter()
     {
-        disablePhysicsRegion = true;
-        if (StartOfRound.Instance.CurrentPlayerPhysicsRegions.Contains(this))
+        return vehicleController.vehicleStorageZone.playerInZone && vehicleController.IsStorageEnclosed();
+    }
+
+    public override bool IsTargetPlayerInVehicle(PlayerControllerB playerScript, EnemyAI enemyAi)
+    {
+        switch (enemyAi)
         {
-            StartOfRound.Instance.CurrentPlayerPhysicsRegions.Remove(this);
-        }
-        for (int i = 0; i < StartOfRound.Instance?.allPlayerScripts.Length; i++)
-        {
-            PlayerControllerB playerController = StartOfRound.Instance.allPlayerScripts[i];
-            if (playerController.transform.parent == physicsTransform)
-            {
-                Transform playerTransform = playerController.isInElevator ? playerController.playersManager.elevatorTransform : playerController.playersManager.playersContainer;
-                playerController.transform.SetParent(playerTransform);
-                Plugin.LogDebug($"Player {i} setting parent since physics region was destroyed");
-            }
-        }
-        if (!allowDroppingItems || itemDropCollider == null) return;
-        GrabbableObject[] componentsInChildren = physicsTransform.GetComponentsInChildren<GrabbableObject>();
-        for (int j = 0; j < componentsInChildren.Length; j++)
-        {
-            if (RoundManager.Instance.mapPropsContainer != null)
-            {
-                componentsInChildren[j].transform.SetParent(RoundManager.Instance.mapPropsContainer.transform, worldPositionStays: true);
-            }
-            else
-            {
-                componentsInChildren[j].transform.SetParent(null, worldPositionStays: true);
-            }
-            if (!componentsInChildren[j].isHeld)
-            {
-                componentsInChildren[j].FallToGround();
-            }
+            case GiantKiwiAI:
+                return vehicleController.IsPlayerSeated(playerScript) || 
+                    (vehicleController.IsPlayerInStorage(playerScript) && vehicleController.IsStorageEnclosed() || 
+                    vehicleController.ontopOfTruckCollider.ClosestPoint(playerScript.transform.position) == playerScript.transform.position);
+            default:
+                return false;
         }
     }
 
-    public new void OnTriggerStay(Collider other)
+    public override bool IsPlayerProtectedFromEnemy(PlayerControllerB playerScript, EnemyAI enemyAi)
     {
-        if (disablePhysicsRegion)
+        switch (enemyAi)
         {
-            return;
-        }
-        PlayerControllerB localPlayer = GameNetworkManager.Instance.localPlayerController;
-        if (localPlayer == null)
-        {
-            hasLocalPlayer = false;
-            playerInZone = false;
-            return;
-        }
-        string tag = other.gameObject.tag;
-        if (parentPlayerBodies && tag.StartsWith("PlayerRagdoll"))
-        {
-            PlayerControllerB playerControllerB = null!;
-            if (other.gameObject.TryGetComponent<DeadBodyInfo>(out var deadBodyInfo))
-            {
-                playerControllerB = deadBodyInfo.playerScript;
-            }
-            if (playerControllerB != null && playerControllerB.deadBody != null &&
-                !playerControllerB.deadBody.isParentedToPhysicsRegion)
-            {
-                playerControllerB.deadBody.SetPhysicsParent(physicsTransform, physicsCollider);
-            }
-            return;
-        }
-        if (!other.gameObject.CompareTag("Player"))
-        {
-            return;
-        }
-        if (other.gameObject != localPlayer.gameObject)
-        {
-            return;
-        }
-        playerInsideThisFrame = true;
-        playerInsideInterval = 0f;
-    }
-
-    public void SetPhysicsRegionActive()
-    {
-        if (!isRegionActive)
-        {
-            if (addedRegionToList)
-                TryRemovePhysicsRegionFromList();
-            return;
-        }
-        checkInterval = 0f;
-        removePlayerNextFrame = false;
-        TryAddPhysicsRegionToList();
-    }
-
-    public void SetPlayerZoneActive()
-    {
-        playerInZone = true;
-    }
-
-    public new bool IsPhysicsRegionActive()
-    {
-        return Vector3.Angle(transform.up, Vector3.up) <= maxTippingAngle && !disablePhysicsRegion;
-    }
-
-    public void TryRemovePhysicsRegionFromList()
-    {
-        StartOfRound.Instance?.CurrentPlayerPhysicsRegions?.Remove(this);
-        addedRegionToList = false;
-        hasLocalPlayer = false;
-        removePlayerNextFrame = false;
-        checkInterval = 0f;
-    }
-
-    public void TryAddPhysicsRegionToList()
-    {
-        if (addedRegionToList || !isRegionActive)
-            return;
-
-        if (StartOfRound.Instance.CurrentPlayerPhysicsRegions != null &&
-            !StartOfRound.Instance.CurrentPlayerPhysicsRegions.Contains(this))
-        {
-            StartOfRound.Instance.CurrentPlayerPhysicsRegions.Add(this);
-            addedRegionToList = true;
-            hasLocalPlayer = true;
+            case BaboonBirdAI:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 8f, enemyCanBeInTruck: true);
+            case ForestGiantAI:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 10f);
+            case GiantKiwiAI:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 12f, enemyCanBeInTruck: true);
+            case MaskedPlayerEnemy:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 4f, enemyCanBeInTruck: true);
+            case MouthDogAI:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 12f);
+            case PumaAI:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 9f, enemyCanBeInTruck: true);
+            case RadMechAI:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 10f);
+            case RedLocustBees:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 8f, enemyCanBeInTruck: true);
+            case SandWormAI:
+                return vehicleController.IsPlayerSeated(playerScript) ||
+                       vehicleController.IsPlayerInStorage(playerScript);
+            case BushWolfEnemy:
+                return IsPlayerProtectedByVehicle(playerScript, enemyAi, velocityCheck: true, velocityThreshold: 6f, enemyCanBeInTruck: true);
+            default:
+                return false;
         }
     }
 
-    public new void Update()
+    internal bool IsPlayerProtectedByVehicle(PlayerControllerB playerScript, EnemyAI enemyAi, bool velocityCheck = false, float velocityThreshold = 0f, bool enemyCanBeInTruck = false)
     {
-        if (disablePhysicsRegion)
+        var enemyInTruck = enemyCanBeInTruck && IsEnemyInTruck(enemyAi, vehicleController.collisionTrigger.insideTruckNavMeshBounds);
+
+        var playerOnVan = vehicleController.IsPlayerAttached(playerScript);
+        var playerInStorage = vehicleController.IsPlayerInStorage(playerScript);
+        var playerSeated = vehicleController.IsPlayerSeated(playerScript);
+        var storageEnclosed = vehicleController.IsStorageEnclosed();
+
+        if (playerSeated)
+            return IsSeatedPlayerProtected(playerScript, velocityCheck, velocityThreshold);
+
+        if (!playerOnVan)
+            return !enemyInTruck;
+
+        if (playerInStorage && storageEnclosed && !enemyInTruck)
+            return true;
+
+        if (enemyInTruck && playerInStorage)
+            return false;
+
+        if (velocityCheck)
         {
-            physicsCollider.enabled = false;
-            return;
+            float vehicleSpeed = vehicleController.averageVelocity.magnitude;
+            if (vehicleSpeed >= velocityThreshold)
+                return true;
         }
-        isRegionActive = IsPhysicsRegionActive();
-        UpdatePhysicsRegion();
-        SetPhysicsRegionAndZone(ref checkInterval, ref removePlayerNextFrame, ref hasLocalPlayer, true);
-        //SetPhysicsRegionAndZone(ref checkZoneInterval, ref removePlayerFromZoneNextFrame, ref playerInZone);
+
+        return IsPlayerProtectedByTruck(playerScript, velocityCheck, velocityThreshold);
     }
 
-    public void UpdatePhysicsRegion()
+    public bool IsSeatedPlayerProtected(PlayerControllerB playerScript, bool velocityCheck = false, float velocityThreshold = 0f)
     {
-        if (!playerInsideThisFrame)
-        {
-            if (playerInZone)
-            {
-                playerInZone = false;
-            }
-            return;
-        }
-        if (playerInsideThisFrame)
-        {
-            SetPhysicsRegionActive();
-            SetPlayerZoneActive();
-        }
-        if (playerInsideInterval <= 0.15f)
-        {
-            playerInsideInterval += Time.deltaTime;
-            return;
-        }
-        playerInsideThisFrame = false;
-        playerInsideInterval = 0f;
+        float vehicleSpeed = vehicleController.averageVelocity.magnitude;
+        if (velocityCheck && vehicleSpeed >= velocityThreshold)
+            return true;
+        return false;
     }
 
-    public void SetPhysicsRegionAndZone(ref float interval, ref bool removeNextFrame, ref bool hasPlayer, bool removeFromPhysicsList = false)
+    public bool IsPlayerProtectedByTruck(PlayerControllerB playerScript, bool velocityCheck = false, float velocityThreshold = 0f)
     {
-        if (!hasPlayer)
+        if (vehicleController.carDestroyed)
+            return false;
+        if (velocityCheck && vehicleController.averageVelocity.magnitude >= velocityThreshold)
         {
-            return;
+            return true;
         }
-        if (interval <= 0.15f)
-        {
-            interval += Time.deltaTime;
-            return;
-        }
-        if (!removeNextFrame)
-        {
-            removeNextFrame = true;
-            return;
-        }
-        removeNextFrame = false;
-        interval = 0f;
-        hasPlayer = false;
-        if (removeFromPhysicsList)
-            TryRemovePhysicsRegionFromList();
+        return vehicleController.IsPlayerInStorage(playerScript)
+            && vehicleController.IsStorageEnclosed();
+    }
+
+    public bool IsEnemyInTruck(EnemyAI? enemyScript, BoxCollider? navMeshBounds)
+    {
+        return enemyScript != null && navMeshBounds != null &&
+              (navMeshBounds.ClosestPoint(enemyScript.transform.position) == enemyScript.transform.position ||
+               navMeshBounds.ClosestPoint(enemyScript.agent.destination) == enemyScript.agent.destination);
+    }
+
+    public override bool IsLocalPlayerSheltered()
+    {
+        return vehicleController != null && IsLocalPlayerInShelter();
     }
 }

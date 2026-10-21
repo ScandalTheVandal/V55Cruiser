@@ -6,9 +6,6 @@ using System.IO;
 using UnityEngine;
 using v55Cruiser.Utils;
 using System.Runtime.CompilerServices;
-using v55Cruiser.Patches.InternalUtils;
-using v55Cruiser.Patches.Enemies;
-using v55Cruiser.Patches;
 
 namespace v55Cruiser;
 
@@ -17,7 +14,6 @@ namespace v55Cruiser;
 [BepInDependency(CompatibilityUtils.GUID_SCANDALS_TWEAKS, BepInDependency.DependencyFlags.HardDependency)]
 [BepInDependency(CompatibilityUtils.GUID_LETHALELEMENTS, BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency(CompatibilityUtils.GUID_LETHALMIN, BepInDependency.DependencyFlags.SoftDependency)]
-[BepInDependency(CompatibilityUtils.GUID_IMMERSIVE_VISOR, BepInDependency.DependencyFlags.SoftDependency)]
 [BepInDependency(CompatibilityUtils.GUID_FIRST_PERSON_VIEW, BepInDependency.DependencyFlags.SoftDependency)]
 public class Plugin : BaseUnityPlugin
 {
@@ -87,26 +83,7 @@ public class Plugin : BaseUnityPlugin
         LogDebug("Patching...");
 
         CompatibilityUtils.Init(Harmony);
-
-        Harmony.PatchAll(type: typeof(ScandalsTweaksPatches));
-        Harmony.PatchAll(type: typeof(BaboonBirdAIPatches));
-        //Harmony.PatchAll(type: typeof(EnemyAIPatches));
-        Harmony.PatchAll(type: typeof(ForestGiantAIPatches));
-        Harmony.PatchAll(type: typeof(GiantKiwiAIPatches));
-        Harmony.PatchAll(type: typeof(MaskedPlayerEnemyPatches));
-        Harmony.PatchAll(type: typeof(MouthDogAIPatches));
-        Harmony.PatchAll(type: typeof(PumaAIPatches));
-        Harmony.PatchAll(type: typeof(RadMechAIPatches));
-        Harmony.PatchAll(type: typeof(RedLocustBeesPatches));
-        Harmony.PatchAll(type: typeof(ElevatorAnimationEventsPatches));
-        Harmony.PatchAll(type: typeof(GameNetworkManagerPatches));
-        Harmony.PatchAll(type: typeof(HUDManagerPatches));
-        Harmony.PatchAll(type: typeof(LandminePatches));
-        Harmony.PatchAll(type: typeof(PlayerControllerBPatches));
-        Harmony.PatchAll(type: typeof(StartOfRoundPatches));
-        Harmony.PatchAll(type: typeof(TerminalPatches));
-        Harmony.PatchAll(type: typeof(TerrainObstacleTriggerPatches));
-        Harmony.PatchAll(type: typeof(VehicleControllerPatches));
+        Harmony.PatchAll();
 
         LogDebug("Finished patching!");
     }
@@ -129,7 +106,10 @@ public class Plugin : BaseUnityPlugin
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void LogDebug(string debugLog)
     {
-        Logger.LogDebug(debugLog);
+        if (UserConfig.EnableDebugLogging.Value)
+        {
+            Logger.LogDebug(debugLog);
+        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

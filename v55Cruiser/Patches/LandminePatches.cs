@@ -5,10 +5,10 @@ using v55Cruiser.Utils;
 
 namespace v55Cruiser.Patches;
 
-[HarmonyPatch(typeof(Landmine))]
+[HarmonyPatch]
 public static class LandminePatches
 {
-    [HarmonyPatch(nameof(Landmine.SpawnExplosion))]
+    [HarmonyPatch(typeof(Landmine), nameof(Landmine.SpawnExplosion))]
     [HarmonyPrefix]
     private static void Landmine_Pre_SpawnExplosion(Landmine __instance, Vector3 explosionPosition, bool spawnExplosionEffect, ref float killRange, ref float damageRange, int nonLethalDamage, float physicsForce, GameObject overridePrefab, bool goThroughCar)
     {
@@ -28,7 +28,7 @@ public static class LandminePatches
             nonLethalDamage == 1 &&
             physicsForce == 0f;
 
-        bool playerInStorage = VehicleUtils.IsPlayerInTruckStorage(playerController, truckController);
+        bool playerInStorage = truckController.IsPlayerInStorage(playerController);
         bool lightningOutsideStorage =
             truckController.storageCompartment.ClosestPoint(explosionPosition) != explosionPosition;
 

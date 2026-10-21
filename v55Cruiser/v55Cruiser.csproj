@@ -5,7 +5,7 @@
 		<AssemblyName>scandal.v55cruiser</AssemblyName>
 		<Product>v55Cruiser</Product>
 		<!-- Change to whatever version you're currently on. -->
-		<Version>1.5.13</Version>
+		<Version>1.5.37</Version>
 	</PropertyGroup>
 
 	<!-- Project Properties -->
@@ -52,7 +52,6 @@
 		<PackageReference Include="BepInEx.Core" Version="5.*" PrivateAssets="all" />
 		<PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" PrivateAssets="all" />
 		<PackageReference Include="UnityEngine.Modules" Version="2022.3.62" IncludeAssets="compile" PrivateAssets="all" />
-		<PackageReference Include="Rune580.Mods.LethalCompany.InputUtils" Version="0.7.10" />
 	</ItemGroup>
 
 	<!-- Manual References -->
@@ -100,9 +99,6 @@
     <Reference Include="LethalMin" Publicize="true">
       <HintPath>$(MANUAL_REFERENCES_DIR)\NotezyBox-LethalMin\NoteBoxz.LethalMin.dll</HintPath>
     </Reference>
-    <Reference Include="ImmersiveVisor" Publicize="true">
-      <HintPath>$(MANUAL_REFERENCES_DIR)\Woecust-ImmersiveVisor\ImmersiveVisor.dll</HintPath>
-    </Reference>
     <Reference Include="FirstPersonView" Publicize="true">
       <HintPath>$(MANUAL_REFERENCES_DIR)\Seeya-FirstPersonView\FirstPersonView.dll</HintPath>
     </Reference>
@@ -112,8 +108,12 @@
 		<PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
 	</ItemGroup>
 
-	<!-- Netcode Patcher Post-Build Event -->
-	<Target Name="NetcodePatch" AfterTargets="PostBuildEvent">
-		<Exec Command="netcode-patch -uv 2022.3.62 -nv 1.12.0 -tv 1.0.0 &quot;$(TargetPath)&quot; @(ReferencePathWithRefAssemblies->'&quot;%(Identity)&quot;', ' ')" />
-	</Target>
+  <!-- Netcode Patcher Post-Build Event -->
+  <Target Name="NetcodePatch" AfterTargets="PostBuildEvent">
+    <PropertyGroup>
+      <NetcodePatcherDepsListFile>$(IntermediateOutputPath)ncp-deps.list</NetcodePatcherDepsListFile>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(NetcodePatcherDepsListFile)" Lines="@(ReferencePathWithRefAssemblies)" Overwrite="true" />
+    <Exec Command="netcode-patch -uv 2022.3.62 -nv 1.12.2 -tv 1.0.0 &quot;$(TargetPath)&quot; --dependency-file &quot;$(NetcodePatcherDepsListFile)&quot;" />
+  </Target>
 </Project>

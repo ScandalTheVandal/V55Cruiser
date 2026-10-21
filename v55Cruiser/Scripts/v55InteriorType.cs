@@ -17,5 +17,7 @@ public class v55InteriorType : MonoBehaviour
 
     public Animator driverSeatSpringAnimator = null!;
 
+    public Animator wipersAnimator = null!;
+
     public float cameraLookAngle;
 }

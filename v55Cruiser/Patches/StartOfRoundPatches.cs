@@ -1,18 +1,17 @@
 using HarmonyLib;
-using v55Cruiser.Networking;
 using System;
 using v55Cruiser.Utils;
 
 namespace v55Cruiser.Patches;
 
-[HarmonyPatch(typeof(StartOfRound))]
+[HarmonyPatch]
 public static class StartOfRoundPatches
 {
-    [HarmonyPatch(nameof(StartOfRound.Awake))]
+    [HarmonyPatch(typeof(StartOfRound), nameof(StartOfRound.Awake))]
     [HarmonyPrefix]
+    [HarmonyAfter("imabatby.lethallevelloader")]
     private static void StartOfRound_Pre_Awake(StartOfRound __instance)
     {
-        V55Networker.Create();
         __instance.VehiclesList[0] = References.companyCruiserPrefab;
     }
 
@@ -21,7 +20,7 @@ public static class StartOfRoundPatches
     ///  Source: https://github.com/digger1213/CruiserImproved/blob/main/source/Patches/StartOfRound.cs
     ///  Source: https://github.com/digger1213/CruiserImproved/blob/main/source/Network/Patches/StartOfRound.cs
     /// </summary>
-    [HarmonyPatch(nameof(StartOfRound.SyncAlreadyHeldObjectsServerRpc))]
+    [HarmonyPatch(typeof(StartOfRound), nameof(StartOfRound.SyncAlreadyHeldObjectsServerRpc))]
     [HarmonyPostfix]
     static void StartOfRound_Post_SyncAlreadyHeldObjectsServerRpc(StartOfRound __instance, int joiningClientId)
     {
@@ -33,7 +32,7 @@ public static class StartOfRoundPatches
                 Plugin.LogError("Attempted to send client data, but the Truck is null? please report this to Scandal.");
                 return;
             }
-            controller.SendClientSyncData();
+            controller.SendClientSyncData((ulong)joiningClientId);
         }
         catch (Exception e)
         {
@@ -41,7 +40,7 @@ public static class StartOfRoundPatches
         }
     }
 
-    [HarmonyPatch(nameof(StartOfRound.LoadAttachedVehicle))]
+    [HarmonyPatch(typeof(StartOfRound), nameof(StartOfRound.LoadAttachedVehicle))]
     [HarmonyPostfix]
     static void StartOfRound_Post_LoadAttachedVehicle(StartOfRound __instance)
     {
@@ -62,7 +61,6 @@ public static class StartOfRoundPatches
             controller.inBetaMode = UserConfig.PostBeta.Value;
             controller.canDestroyTrees = !UserConfig.NoTreeDestruction.Value;
             controller.hasAdditionalMusic = UserConfig.AdditionalRadioMusic.Value;
-            controller.useSteeringCurve = UserConfig.AlternateSteering.Value && !UserConfig.PostBeta.Value;
             if (!controller.inBetaMode)
             {
                 controller.canDestroyTrees = true;

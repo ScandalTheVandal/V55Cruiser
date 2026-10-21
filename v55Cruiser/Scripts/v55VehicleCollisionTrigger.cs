@@ -126,8 +126,11 @@ public class v55VehicleCollisionTrigger : MonoBehaviour
             if (Vector3.Angle(mainScript.averageVelocity, enemyCollision.mainScript.transform.position - transform.position) > 130f)
                 return;
 
-            if (!mainScript.liftGateOpen && VehicleUtils.IsEnemyInTruck(enemyCollision.mainScript, insideTruckNavMeshBounds))
+            if (!mainScript.liftGateOpen && 
+                (insideTruckNavMeshBounds.ClosestPoint(enemyCollision.mainScript.transform.position) == enemyCollision.mainScript.transform.position || insideTruckNavMeshBounds.ClosestPoint(enemyCollision.mainScript.agent.destination) == enemyCollision.mainScript.agent.destination))
+            {
                 return;
+            }
 
             bool dealDamage = false;
             for (int i = 0; i < enemiesLastHit.Length; i++)

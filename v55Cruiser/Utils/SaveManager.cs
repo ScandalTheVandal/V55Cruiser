@@ -1,10 +1,10 @@
 ﻿namespace v55Cruiser.Utils;
 public static class SaveManager
 {
-    internal static string SavePrefix = "TruckData.";
+    internal const string SavePrefix = "TruckData.";
 
     // data to save
-    internal static string SavedTruckInterior = "AttachedTruckInterior";
+    internal const string SavedTruckInterior = "AttachedTruckInterior";
 
     public static void Save<T>(string key, T data)
     {
